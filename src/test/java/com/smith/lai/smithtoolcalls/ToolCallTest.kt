@@ -1,6 +1,7 @@
 package com.smith.lai.smithtoolcalls
 
 import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLM
+import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLMNoParam
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample1
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample2
 import kotlinx.coroutines.runBlocking
@@ -58,6 +59,25 @@ class ToolCallTest {
         toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
 
         val fakeLLM = FakeLLM()
+        val system = toolRegistry.createSystemPrompt()
+        val response = runBlocking {
+            fakeLLM.generateResponse(system, "this is a test")
+        }
+        val result = runBlocking {
+            println(response)
+            toolRegistry.processLLMOutput(response)  // 解析並執行工具
+        }
+        print(result+"\n")
+        toolRegistry.clear()
+    }
+
+    @Test
+    fun testLLMNoParam() {
+        println("=== Running test: ${testName.methodName} ===")
+        val toolRegistry = ToolRegistry()
+        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
+
+        val fakeLLM = FakeLLMNoParam()
         val system = toolRegistry.createSystemPrompt()
         val response = runBlocking {
             fakeLLM.generateResponse(system, "this is a test")

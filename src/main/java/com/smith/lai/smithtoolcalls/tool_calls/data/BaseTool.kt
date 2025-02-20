@@ -1,5 +1,5 @@
 package com.smith.lai.smithtoolcalls.tool_calls.data
 
-abstract class BaseTool {
-    abstract suspend fun invoke(input: String): String
+abstract class BaseTool<T> {
+    abstract suspend fun invoke(input: T): String
 }

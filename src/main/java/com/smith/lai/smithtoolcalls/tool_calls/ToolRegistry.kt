@@ -10,13 +10,17 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.*
 import kotlin.reflect.jvm.isAccessible
 import io.github.classgraph.ClassGraph
+import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.serializerOrNull
+import kotlin.reflect.KType
 
 @Single
 class ToolRegistry {
-    private val tools = mutableMapOf<String, BaseTool>()
+    private val tools = mutableMapOf<String, BaseTool<*>>()
     private val descriptions = mutableMapOf<String, String>()
 
-    fun register(tool: BaseTool, name: String, description: String) {
+    fun register(tool: BaseTool<*>, name: String, description: String) {
         tools[name] = tool
         descriptions[name] = description
     }
@@ -28,12 +32,12 @@ class ToolRegistry {
         tools.clear()
         descriptions.clear()
     }
-    fun getTool(name: String): BaseTool? = tools[name]
+    fun getTool(name: String): BaseTool<*>? = tools[name]
 
     fun listTools(): List<Pair<String, String>> = descriptions.entries.map { it.toPair() }
 
     // 自動掃描帶 @ToolAnnotation 的類別，並註冊
-    fun autoRegister(toolClasses: List<KClass<out BaseTool>>) {
+    fun autoRegister(toolClasses: List<KClass<out BaseTool<*>>>) {
         for (clazz in toolClasses) {
             val annotation = clazz.findAnnotation<ToolAnnotation>()
             if (annotation != null) {
@@ -58,7 +62,7 @@ class ToolRegistry {
             val kClass = Class.forName(classInfo.name).kotlin
             val annotation = kClass.findAnnotation<ToolAnnotation>()
             if (annotation != null) {
-                val instance = kClass.createInstance() as BaseTool
+                val instance = kClass.createInstance() as BaseTool<*>
                 tools[annotation.name] = instance
                 descriptions[annotation.name] = annotation.description
             }
@@ -89,32 +93,36 @@ class ToolRegistry {
                 "{\"tool\": \"calculation_tool\", \"arguments\": \"42\"}\n"
     }
 
-    suspend fun executeToolCallsParallel(toolCalls: ToolCallList, toolRegistry: ToolRegistry): List<String> {
-        return coroutineScope {
-            toolCalls.calls.map { call ->
-                async {
-                    val tool = toolRegistry.getTool(call.tool)
-                    tool?.let {
-                        val method = it::class.memberFunctions.find { it.name == "execute" }
-                        method?.let { m ->
-                            m.isAccessible = true
-                            m.callSuspend(it, call.arguments) as String
-                        } ?: "錯誤：工具 ${call.tool} 沒有可執行的方法"
-                    } ?: "錯誤：找不到工具 ${call.tool}"
-                }
-            }.awaitAll()
-        }
+    @OptIn(InternalSerializationApi::class)
+    fun serializerForType(kType: KType?):  KSerializer<out Any>? {
+        val kClass = kType?.classifier as? KClass<*>
+        return kClass?.serializerOrNull()
     }
+
     suspend fun processLLMOutput(output: String): String {
-        println("========")
         return try {
-            val toolCall = Json.decodeFromString<ToolCall>(output)  // 解析 LLM JSON 輸出
-            println("[$toolCall]")
-            val tool = getTool(toolCall.tool)
-            println(tool)
-            tool?.invoke(toolCall.arguments) ?: "錯誤：找不到工具 ${toolCall.tool}"
+            val toolCall = Json.decodeFromString<ToolCall>(output)
+            val tool = getTool(toolCall.tool) ?: return "錯誤：找不到工具 ${toolCall.tool}"
+
+            val toolClass = tool::class
+            val parameterType = toolClass.supertypes.first().arguments.first().type
+
+            if (parameterType == null || parameterType == Unit::class.createType()) {
+                @Suppress("UNCHECKED_CAST")
+                return (tool as BaseTool<Unit>).invoke(Unit)
+            }else {
+                val serializer =
+                    serializerForType(parameterType) ?: return "錯誤：找不到適用的序列化器"
+
+                // 解析 arguments 並轉型
+                val jsonElement = Json.parseToJsonElement(toolCall.arguments.toString())
+                val parsedArgs = Json.decodeFromJsonElement(serializer, jsonElement)
+                // **正確轉型**
+                @Suppress("UNCHECKED_CAST")
+                return (tool as BaseTool<Any>).invoke(parsedArgs!!)
+            }
         } catch (e: Exception) {
-            "錯誤：無法解析 LLM 輸出"
+            "錯誤：無法解析 LLM 輸出 -> ${e.localizedMessage}"
         }
     }
 }
