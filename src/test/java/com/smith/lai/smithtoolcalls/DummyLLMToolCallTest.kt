@@ -1,15 +1,14 @@
 package com.smith.lai.smithtoolcalls
 
-import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.data.Tool
+import com.smith.lai.smithtoolcalls.dummy_tools.CalculatorTool
+import com.smith.lai.smithtoolcalls.dummy_tools.TranslatorTool
+import com.smith.lai.smithtoolcalls.dummy_tools.WeatherTool
 import com.smith.lai.smithtoolcalls.tool_calls.data.ToolCallsArray
-import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.CalculatorTool
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Before
 import org.junit.Test
 import junit.framework.TestCase.assertEquals
-import kotlinx.serialization.Serializable
 import org.junit.After
 import org.junit.Rule
 import org.junit.rules.TestName
@@ -41,49 +40,6 @@ class FakeLLM {
         // 在实际应用中，这里会将工具调用结果传给LLM并获取最终回答
         // 现在我们只是返回一个假的固定回答
         return "根据计算结果，42 + 58 = 100。所以答案是100。"
-    }
-}
-
-// 其他测试工具定义
-@Serializable
-data class WeatherInput(
-    val location: String,
-    val unit: String = "celsius"
-)
-
-@Tool(
-    name = "get_weather",
-    description = "Get the current weather in a given location",
-    returnDescription = "The current weather conditions and temperature"
-)
-class WeatherTool : BaseTool<WeatherInput>() {
-    override suspend fun invoke(input: WeatherInput): String {
-        // 模拟天气API调用
-        return "Current weather in ${input.location} is 25°${input.unit.first().uppercase()}, Partly Cloudy"
-    }
-}
-
-@Serializable
-data class TranslatorInput(
-    val text: String,
-    val targetLanguage: String
-)
-
-@Tool(
-    name = "translate_text",
-    description = "Translate text to another language",
-    returnDescription = "The translated text"
-)
-class TranslatorTool : BaseTool<TranslatorInput>() {
-    override suspend fun invoke(input: TranslatorInput): String {
-        // 模拟翻译API调用
-        val result = when (input.targetLanguage.lowercase()) {
-            "chinese", "zh" -> "这是翻译后的文本"
-            "french", "fr" -> "C'est le texte traduit"
-            "spanish", "es" -> "Este es el texto traducido"
-            else -> "This is the translated text"
-        }
-        return result
     }
 }
 

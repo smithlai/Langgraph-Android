@@ -1,10 +1,6 @@
 package com.smith.lai.smithtoolcalls
 
-import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
-
-import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.CalculatorTool
-import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample1
-import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample2
+import com.smith.lai.smithtoolcalls.dummy_tools.CalculatorTool
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
@@ -14,7 +10,7 @@ import org.junit.Rule
 import org.junit.rules.TestName
 
 // 測試類別
-class ToolCallTest {
+class UnitToolCallTest {
     @Rule
     @JvmField
     val testName = TestName()
@@ -27,8 +23,9 @@ class ToolCallTest {
     }
     @Test
     fun testRegister() {
-        toolRegistry.scanTools("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
+        toolRegistry.scanTools("com.smith.lai.smithtoolcalls")
         val toolnames = toolRegistry.getToolNames()
+        println(toolnames.joinToString(","))
         assertTrue(toolnames.size > 0)
     }
 
@@ -49,6 +46,7 @@ class ToolCallTest {
 
         runBlocking {
             val response = toolRegistry.processToolCall(toolCall)
+            println("123 + 456 = ${response.output}")
             assertTrue(response.output== "579")
         }
     }
