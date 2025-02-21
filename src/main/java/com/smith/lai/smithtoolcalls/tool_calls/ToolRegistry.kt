@@ -2,13 +2,10 @@ package com.smith.lai.smithtoolcalls
 import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
 import com.smith.lai.smithtoolcalls.tool_calls.data.ToolAnnotation
 import com.smith.lai.smithtoolcalls.tool_calls.data.ToolCall
-import com.smith.lai.smithtoolcalls.tool_calls.data.ToolCallList
-import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import org.koin.core.annotation.Single
 import kotlin.reflect.KClass
 import kotlin.reflect.full.*
-import kotlin.reflect.jvm.isAccessible
 import io.github.classgraph.ClassGraph
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -70,33 +67,48 @@ class ToolRegistry {
     }
 
     private fun generateToolSchema(): String {
-        val toolList = listTools().map { (name, description) ->
-            """ - {"name": "$name", "description": "$description"}"""
+        return tools.entries.joinToString("\n") { (name, tool) ->
+            val description = descriptions[name] ?: "No description available"
+            val parameters = getToolParameters(tool)
+            val para_desc = if (parameters?.isNotEmpty() == true){
+                "[${parameters.joinToString(", ")}]"
+            }else{
+                "No parameters available"
+            }
+            """ - {"name": "$name", "description": "$description", "parameters": $para_desc}"""
         }
-        return toolList.joinToString("\n")
     }
-    // 產生 System Prompt
-    private fun generateToolDescription(tools: List<Pair<String, String>>): String {
-        tools.joinToString("\n") {(name, description) ->
-            "- $name: $description"
-        }
-
-        return tools.joinToString("\n") { (name, description) -> "- $name: $description" }.trimIndent()
-    }
-
     fun createSystemPrompt(): String {
-//        val toolDescriptions = generateToolDescription(listTools())
         val toolSchema = generateToolSchema()
-        return "你是一個智能助手，你可以使用以下工具：\n" +
-                "${toolSchema}\n" +
-                "請用 JSON 格式輸出工具呼叫，例如：\n" +
-                "{\"tool\": \"calculation_tool\", \"arguments\": \"42\"}\n"
+        return """
+你是一個智能助手，可以使用以下工具來執行任務：
+${toolSchema}
+
+每個工具有一個名稱、一個描述和一組參數。參數可以是數字、字串等類型，請根據每個工具的參數描述來提供正確的參數格式。
+
+當你需要執行某個工具時，請生成一個 JSON 物件，包含以下欄位：
+- "tool": 工具的名稱
+- "arguments": 工具需要的參數（可以是字串、數字或其他 JSON 支援的格式）
+
+例如，如果你想使用名為 "calculation_tool_add" 的工具來處理 42 + 43，你應該這樣構建 JSON：
+{"tool": "calculation_tool_add", "arguments": [42, 43]}
+
+根據上述工具名稱、描述和參數類型，請選擇合適的工具並輸出相應的 JSON 格式呼叫。
+    """.trimIndent()
     }
 
+    // see if the data class parameter is with @Serializable
     @OptIn(InternalSerializationApi::class)
-    fun serializerForType(kType: KType?):  KSerializer<out Any>? {
+    private fun serializerForType(kType: KType?):  KSerializer<out Any>? {
         val kClass = kType?.classifier as? KClass<*>
         return kClass?.serializerOrNull()
+    }
+
+    fun getToolParameters(tool: BaseTool<*>): List<String>? {
+        val toolClass = tool::class
+        val parameter1Type = toolClass.supertypes.firstOrNull()?.arguments?.firstOrNull()?.type
+        val kClass = parameter1Type?.classifier as? KClass<*>
+        return kClass?.declaredMemberProperties?.map { it.name + ": " + it.returnType.classifier.toString() }
     }
 
     suspend fun processLLMOutput(output: String): String {
@@ -105,14 +117,14 @@ class ToolRegistry {
             val tool = getTool(toolCall.tool) ?: return "錯誤：找不到工具 ${toolCall.tool}"
 
             val toolClass = tool::class
-            val parameterType = toolClass.supertypes.first().arguments.first().type
+            val parameter1Type = toolClass.supertypes.first().arguments.first().type
 
-            if (parameterType == null || parameterType == Unit::class.createType()) {
+            if (parameter1Type == null || parameter1Type == Unit::class.createType()) {
                 @Suppress("UNCHECKED_CAST")
                 return (tool as BaseTool<Unit>).invoke(Unit)
             }else {
                 val serializer =
-                    serializerForType(parameterType) ?: return "錯誤：找不到適用的序列化器"
+                    serializerForType(parameter1Type) ?: return "錯誤：找不到適用的序列化器"
 
                 // 解析 arguments 並轉型
                 val jsonElement = Json.parseToJsonElement(toolCall.arguments.toString())
@@ -126,36 +138,3 @@ class ToolRegistry {
         }
     }
 }
-
-// 解析 LLM 輸出並執行工具
-//public suspend fun processLLMOutput(output: String, toolRegistry: ToolRegistry): String {
-//    val regex = Regex("CALL_TOOL: ([a-zA-Z0-9_]+) | (.+)")
-//    val match = regex.find(output)
-//
-//    return if (match != null) {
-//        val toolName = match.groupValues[1]
-//        val toolInput = match.groupValues[2]
-//
-//        val tool = toolRegistry.getTool(toolName)
-//        if (tool != null) {
-//            val method = tool::class.memberFunctions.find { it.name == "execute" }
-//            method?.let {
-//                it.isAccessible = true
-//                return it.callSuspend(tool, toolInput) as String
-//            } ?: "錯誤：工具 $toolName 沒有可執行的方法"
-//        } else {
-//            "錯誤：找不到工具 $toolName"
-//        }
-//    } else {
-//        "LLM 回應: $output"
-//    }
-//}
-
-//// 擴展函數，支援 suspend 方法調用
-//suspend fun kotlin.reflect.KFunction<*>.callSuspend(obj: Any, vararg args: Any?): Any? {
-//    return if (isSuspend) {
-//        callSuspend(obj, *args)
-//    } else {
-//        call(obj, *args)
-//    }
-//}

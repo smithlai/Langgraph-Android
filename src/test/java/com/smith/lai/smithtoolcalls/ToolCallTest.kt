@@ -89,6 +89,27 @@ class ToolCallTest {
         print(result+"\n")
         toolRegistry.clear()
     }
+    @Test
+    fun testCalcAdd() {
+        println("=== Running test: ${testName.methodName} ===")
+        val toolRegistry = ToolRegistry()
+        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
+
+        val fakeLLM = FakeLLMNoParam()
+        val system = toolRegistry.createSystemPrompt()
+        val response = """
+{
+    "tool": "tool_calc_add",
+    "arguments": { "param1": 123, "param2": "456" }
+}
+"""
+        val result = runBlocking {
+            println(response)
+            toolRegistry.processLLMOutput(response)  // 解析並執行工具
+        }
+        print(result+"\n")
+        toolRegistry.clear()
+    }
 
 
 }

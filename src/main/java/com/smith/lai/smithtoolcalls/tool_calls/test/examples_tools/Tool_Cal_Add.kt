@@ -6,13 +6,14 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Example2Params(val param1: Int, val param2: String)
+data class ToolCalcAddParam(val param1: Int, val param2: Int)
 
-@ToolAnnotation(name = "tool_example2", description = "tools for example2")
-class ToolExample2 : BaseTool<ToolCalcAddParam>() {
+@ToolAnnotation(name = "tool_calc_add", description = "tools for example2")
+class ToolCalcAdd : BaseTool<ToolCalcAddParam>() {
     override suspend fun invoke(input: ToolCalcAddParam): String {
         delay(1000)
-        return "tool_example2 回應: param1=${input.param1}, param2=${input.param2}\n"
+        val answer = input.param1 + input.param2
+        return "tool_calc_add 回應: ${input.param1} + ${input.param2} = $answer\n"
     }
 }
 
