@@ -1,0 +1,32 @@
+package com.smith.lai.smithtoolcalls.tool_calls.data
+
+import com.aallam.openai.api.chat.FunctionCall
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ToolCallArguments(
+    val id: String,
+    val type: String = "function",
+    val function: FunctionCall
+)
+
+@Serializable
+data class FunctionCall(
+    val name: String,
+    val arguments: String
+)
+
+@Serializable
+data class ToolResponse(
+    val id: String,
+    val type: String = "function",
+    val output: String
+)
+
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class Tool(
+    val name: String,
+    val description: String,
+    val returnDescription: String = ""
+)

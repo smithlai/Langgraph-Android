@@ -1,7 +1,9 @@
 package com.smith.lai.smithtoolcalls
 
+import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
 import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLM
 import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLMNoParam
+import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample1
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample2
 import kotlinx.coroutines.runBlocking
@@ -18,98 +20,37 @@ class ToolCallTest {
 
     private val toolRegistry = ToolRegistry()
 
-
     @Test
     fun testRegister() {
         println("=== Running test: ${testName.methodName} ===")
-        toolRegistry.autoRegister(listOf(ToolExample1::class, ToolExample2::class))
-        val a = toolRegistry.listTools()
-        a.forEach {
-            println(it.first +"->"+it.second)
-        }
-        toolRegistry.clear()
-        assertTrue(true)
-    }
-    @Test
-    fun testRegister2() {
-        println("=== Running test: ${testName.methodName} ===")
-        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.data.examples_tools")
-        val a = toolRegistry.listTools()
-        a.forEach {
-            println(it.first +"->"+it.second)
-        }
-        toolRegistry.clear()
-        assertTrue(true)
-    }
-    @Test
-    fun testSystemPrompts() {
-        println("=== Running test: ${testName.methodName} ===")
-        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
-        val sysprompt = toolRegistry.createSystemPrompt()
-
-        println("testSystemPrompts " + sysprompt)
+        toolRegistry.scanTools("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
+        println(toolRegistry.getToolNames())
         toolRegistry.clear()
         assertTrue(true)
     }
 
     @Test
-    fun testLLM() {
+    fun testToolCall() {
         println("=== Running test: ${testName.methodName} ===")
-        val toolRegistry = ToolRegistry()
-        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
+        toolRegistry.register(CalculatorTool::class)
 
-        val fakeLLM = FakeLLM()
-        val system = toolRegistry.createSystemPrompt()
-        val response = runBlocking {
-            fakeLLM.generateResponse(system, "this is a test")
+        val toolCall = """
+    {
+        "id": "${toolRegistry.generateCallId()}",
+        "type": "function",
+        "function": {
+            "name": "calculator_add",
+            "arguments": "{\"param1\": 123, \"param2\": 456}"
         }
-        val result = runBlocking {
-            println(response)
-            toolRegistry.processLLMOutput(response)  // 解析並執行工具
+    }
+    """
+
+        runBlocking {
+            val response = toolRegistry.processToolCall(toolCall)
+            println(response) // ToolResponse(id=request_123, type=function, output=579)
         }
-        print(result+"\n")
-        toolRegistry.clear()
     }
 
-    @Test
-    fun testLLMNoParam() {
-        println("=== Running test: ${testName.methodName} ===")
-        val toolRegistry = ToolRegistry()
-        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
-
-        val fakeLLM = FakeLLMNoParam()
-        val system = toolRegistry.createSystemPrompt()
-        val response = runBlocking {
-            fakeLLM.generateResponse(system, "this is a test")
-        }
-        val result = runBlocking {
-            println(response)
-            toolRegistry.processLLMOutput(response)  // 解析並執行工具
-        }
-        print(result+"\n")
-        toolRegistry.clear()
-    }
-    @Test
-    fun testCalcAdd() {
-        println("=== Running test: ${testName.methodName} ===")
-        val toolRegistry = ToolRegistry()
-        toolRegistry.autoRegister("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
-
-        val fakeLLM = FakeLLMNoParam()
-        val system = toolRegistry.createSystemPrompt()
-        val response = """
-{
-    "tool": "tool_calc_add",
-    "arguments": { "param1": 123, "param2": "456" }
-}
-"""
-        val result = runBlocking {
-            println(response)
-            toolRegistry.processLLMOutput(response)  // 解析並執行工具
-        }
-        print(result+"\n")
-        toolRegistry.clear()
-    }
 
 
 }
