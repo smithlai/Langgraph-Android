@@ -1,14 +1,15 @@
 package com.smith.lai.smithtoolcalls
 
 import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLM
-import com.smith.lai.smithtoolcalls.tool_calls.test.FakeLLMNoParam
+
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample1
 import com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools.ToolExample2
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.TestName
 
@@ -20,18 +21,19 @@ class ToolCallTest {
 
     private val toolRegistry = ToolRegistry()
 
+    @Before
+    fun setup(){
+        println("====== Running test: ${testName.methodName} ======")
+    }
     @Test
     fun testRegister() {
-        println("=== Running test: ${testName.methodName} ===")
         toolRegistry.scanTools("com.smith.lai.smithtoolcalls.tool_calls.test.examples_tools")
-        println(toolRegistry.getToolNames())
-        toolRegistry.clear()
-        assertTrue(true)
+        val toolnames = toolRegistry.getToolNames()
+        assertTrue(toolnames.size > 0)
     }
 
     @Test
-    fun testToolCall() {
-        println("=== Running test: ${testName.methodName} ===")
+    fun testCalculatorCall() {
         toolRegistry.register(CalculatorTool::class)
 
         val toolCall = """
@@ -47,10 +49,14 @@ class ToolCallTest {
 
         runBlocking {
             val response = toolRegistry.processToolCall(toolCall)
-            println(response) // ToolResponse(id=request_123, type=function, output=579)
+            assertTrue(response.output== "579")
         }
     }
-
+    @After
+    fun clear(){
+        toolRegistry.clear()
+        println("====== ${testName.methodName} End ======")
+    }
 
 
 }

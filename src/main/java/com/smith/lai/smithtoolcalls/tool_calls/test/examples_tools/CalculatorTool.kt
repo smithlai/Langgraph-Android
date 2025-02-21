@@ -16,7 +16,7 @@ data class CalculatorInput(
     description = "Add two numbers together",
     returnDescription = "The sum of the two numbers"
 )
-class CalculatorTool : BaseTool<CalculatorInput>() {
+public class CalculatorTool : BaseTool<CalculatorInput>() {
     override suspend fun invoke(input: CalculatorInput): String {
         val result = input.param1 + input.param2
         return result.toString()

@@ -60,12 +60,19 @@ abstract class BaseTool<T> {
     }
 
     private fun getJsonType(property: KProperty1<*, *>): String {
-        return when (property.returnType.classifier) {
+        val classifier = property.returnType.classifier
+        return when (classifier){
             Int::class, Long::class -> "integer"
             Float::class, Double::class -> "number"
             Boolean::class -> "boolean"
             String::class -> "string"
-            else -> "object"
+            List::class -> "array"
+            Map::class -> "object"
+            else -> when {
+                property.returnType.toString().contains("List") -> "array"
+                property.returnType.toString().contains("Map") -> "object"
+                else -> "object"
+            }
         }
     }
 
