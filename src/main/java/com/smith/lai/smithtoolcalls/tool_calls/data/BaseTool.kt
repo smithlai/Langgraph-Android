@@ -1,7 +1,5 @@
 package com.smith.lai.smithtoolcalls.tool_calls.data
 
-import com.aallam.openai.api.chat.FunctionCall
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -20,7 +18,7 @@ import kotlin.reflect.full.memberProperties
 abstract class BaseTool<T> {
     abstract suspend fun invoke(input: T): String
 
-    protected fun getParameterType(): KClass<*>? {
+    fun getParameterType(): KClass<*>? {
         val parameterType = this::class.supertypes
             .firstOrNull()
             ?.arguments

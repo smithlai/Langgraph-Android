@@ -23,7 +23,7 @@ class UnitToolCallTest {
     }
     @Test
     fun testRegister() {
-        toolRegistry.scanTools("com.smith.lai.smithtoolcalls")
+        toolRegistry.scanTools("com.smith.lai.smithtoolcalls.dummy_tools")
         val toolnames = toolRegistry.getToolNames()
         println(toolnames.joinToString(","))
         assertTrue(toolnames.size > 0)
@@ -45,9 +45,9 @@ class UnitToolCallTest {
     """
 
         runBlocking {
-            val response = toolRegistry.processToolCall(toolCall)
-            println("123 + 456 = ${response.output}")
-            assertTrue(response.output== "579")
+            val response = toolRegistry.handleToolExecution(toolCall)
+            println("123 + 456 = ${response.first().output}")
+            assertTrue(response.first().output== "579")
         }
     }
     @After

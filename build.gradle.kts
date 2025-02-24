@@ -28,6 +28,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    testOptions {
+        unitTests {
+            //避免UnitTest因為Log.d造成錯誤 (UnitTest一般使用println，但是被呼叫的物件可能有Log.d)
+            isReturnDefaultValues = true
+        }
+    }
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -52,6 +58,9 @@ dependencies {
     implementation("org.jetbrains.kotlin.plugin.serialization:org.jetbrains.kotlin.plugin.serialization.gradle.plugin:2.1.10")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.github.classgraph:classgraph:4.8.179")
+    testImplementation(project(":smollm"))
+    androidTestImplementation(project(":smollm"))
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

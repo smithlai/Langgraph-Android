@@ -1,6 +1,5 @@
 package com.smith.lai.smithtoolcalls.tool_calls.data
 
-import com.aallam.openai.api.chat.FunctionCall
 import kotlinx.serialization.Serializable
 
 @Serializable
