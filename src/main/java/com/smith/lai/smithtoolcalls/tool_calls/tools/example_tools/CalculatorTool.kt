@@ -1,7 +1,7 @@
-package com.smith.lai.smithtoolcalls.dummy_tools
+package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
 
-import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.data.Tool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.Tool
 import kotlinx.serialization.Serializable
 
 
@@ -16,9 +16,9 @@ data class CalculatorInput(
     description = "Add two numbers together",
     returnDescription = "The sum of the two numbers"
 )
-class CalculatorTool : BaseTool<CalculatorInput>() {
-    override suspend fun invoke(input: CalculatorInput): String {
+class CalculatorTool : BaseTool<CalculatorInput, Int>() {
+    override suspend fun invoke(input: CalculatorInput): Int {
         val result = input.param1 + input.param2
-        return result.toString()
+        return result
     }
 }

@@ -1,5 +1,6 @@
-package com.smith.lai.smithtoolcalls.tool_calls.data
+package com.smith.lai.smithtoolcalls.tool_calls.tools
 
+import android.util.Log
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -7,7 +8,6 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.findAnnotation
@@ -15,8 +15,8 @@ import kotlin.reflect.full.memberProperties
 
 
 
-abstract class BaseTool<T> {
-    abstract suspend fun invoke(input: T): String
+abstract class BaseTool<TInput, TOutput> {
+    abstract suspend fun invoke(input: TInput): TOutput
 
     fun getParameterType(): KClass<*>? {
         val parameterType = this::class.supertypes
@@ -27,10 +27,27 @@ abstract class BaseTool<T> {
         return parameterType?.classifier as? KClass<*>
     }
 
-    open fun getParameterSchema(): JsonObject {
-        val paramClass = getParameterType() ?: return JsonObject(emptyMap())
+    fun getReturnType(): KClass<*>? {
+        val returnType = this::class.supertypes
+            .firstOrNull()
+            ?.arguments
+            ?.getOrNull(1)
+            ?.type
+        return returnType?.classifier as? KClass<*>
+    }
 
-        // Verify the class is serializable
+    private fun getParameterSchema(): JsonObject {
+        val paramClass = getParameterType()
+
+        // 處理 null 或 Unit 類型（Tool without parameter）
+        if (paramClass == null || paramClass == Unit::class) {
+            return buildJsonObject {
+                put("type", "object")
+                put("properties", JsonObject(emptyMap()))
+                // 不包含 required 字段，因為沒有必要的參數
+            }
+        }
+
         if (paramClass.findAnnotation<Serializable>() == null) {
             throw IllegalStateException("Parameter class must be @Serializable")
         }
@@ -38,18 +55,15 @@ abstract class BaseTool<T> {
         return buildJsonObject {
             put("type", "object")
 
-            // Get required properties (all properties for now, could be customized with annotations)
             val properties = paramClass.memberProperties
             put("required", buildJsonArray {
                 properties.forEach { add(it.name) }
             })
 
-            // Build properties schema
             putJsonObject("properties") {
                 properties.forEach { prop ->
                     putJsonObject(prop.name) {
                         put("type", getJsonType(prop))
-                        // Could add property description from KDoc or custom annotation
                         put("description", getPropertyDescription(prop))
                     }
                 }
@@ -57,6 +71,30 @@ abstract class BaseTool<T> {
         }
     }
 
+    open fun getReturnSchema(): JsonObject {
+        val returnClass = getReturnType() ?: return JsonObject(emptyMap())
+
+        val isPrimitiveOrString = returnClass in listOf(
+            String::class, Int::class, Long::class,
+            Float::class, Double::class, Boolean::class
+        )
+
+        if (!isPrimitiveOrString && returnClass.findAnnotation<Serializable>() == null) {
+            throw IllegalStateException("Return class must be a primitive type, String, or @Serializable")
+        }
+
+        return buildJsonObject {
+            put("type", when(returnClass) {
+                Int::class, Long::class -> "integer"
+                Float::class, Double::class -> "number"
+                Boolean::class -> "boolean"
+                String::class -> "string"
+                else -> "object"
+            })
+        }
+    }
+
+    // 其他輔助方法保持不變
     private fun getJsonType(property: KProperty1<*, *>): String {
         val classifier = property.returnType.classifier
         return when (classifier){
@@ -75,22 +113,25 @@ abstract class BaseTool<T> {
     }
 
     private fun getPropertyDescription(property: KProperty1<*, *>): String {
-        // Could be enhanced to read from KDoc or custom property annotations
         return "Parameter: ${property.name}"
+    }
+    fun getToolAnnotation(): Tool {
+        val annotation = this::class.findAnnotation<Tool>() ?:
+        throw IllegalStateException("Tool annotation not found")
+        return annotation
     }
 
     open fun getJsonSchema(): JsonObject {
-        val annotation = this::class.findAnnotation<Tool>() ?:
-        throw IllegalStateException("Tool annotation not found")
+        val annotation = getToolAnnotation()
 
         return buildJsonObject {
             put("name", annotation.name)
             put("description", annotation.description)
             put("parameters", getParameterSchema())
+            put("returns", getReturnSchema())
             if (annotation.returnDescription.isNotEmpty()) {
                 put("returnDescription", annotation.returnDescription)
             }
         }
     }
-
 }

@@ -1,30 +1,22 @@
 package com.smith.lai.smithtoolcalls
 import android.util.Log
-import com.smith.lai.smithtoolcalls.tool_calls.data.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.data.Tool
-import com.smith.lai.smithtoolcalls.tool_calls.data.ToolCallArguments
-import com.smith.lai.smithtoolcalls.tool_calls.data.ToolCallsArray
-import com.smith.lai.smithtoolcalls.tool_calls.data.ToolResponse
+import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.Tool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallsArray
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponse
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponseType
 import kotlinx.serialization.json.Json
 import org.koin.core.annotation.Single
 import kotlin.reflect.KClass
 import kotlin.reflect.full.*
 import io.github.classgraph.ClassGraph
 import kotlinx.serialization.InternalSerializationApi
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.serializer
-import kotlinx.serialization.serializerOrNull
 import java.util.UUID
-import kotlin.reflect.KType
 
 @Single
 class ToolRegistry {
-    private val tools = mutableMapOf<String, BaseTool<*>>()
+    private val tools = mutableMapOf<String, BaseTool<*, *>>()
 
     fun unregister(name: String) {
         tools.remove(name)
@@ -34,18 +26,18 @@ class ToolRegistry {
         tools.clear()
     }
 
-    fun register(tool: BaseTool<*>) {
+    fun register(tool: BaseTool<*, *>) {
         val annotation = tool::class.findAnnotation<Tool>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
     }
 
-    fun register(toolClass: KClass<out BaseTool<*>>) {
+    fun register(toolClass: KClass<out BaseTool<*, *>>) {
         val instance = toolClass.createInstance()
         register(instance)
     }
 
-    fun register(toolClasses: List<KClass<out BaseTool<*>>>) {
+    fun register(toolClasses: List<KClass<out BaseTool<*, *>>>) {
         toolClasses.forEach { register(it) }
     }
 
@@ -59,16 +51,17 @@ class ToolRegistry {
         val toolClassInfos = scanResult.getClassesWithAnnotation(Tool::class.java.name)
         val toolClasses = toolClassInfos.map {
             @Suppress("UNCHECKED_CAST")
-            Class.forName(it.name).kotlin as KClass<out BaseTool<*>>
+            Class.forName(it.name).kotlin as KClass<out BaseTool<*,*>>
         }
         register(toolClasses)
     }
 
-    fun getTool(name: String): BaseTool<*>? = tools[name]
+
+    fun getTool(name: String): BaseTool<*, *>? = tools[name]
 
     fun getToolNames(): List<String> = tools.keys.toList()
 
-    fun getTools(): List<BaseTool<*>> = tools.values.toList()
+    fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
     // 创建适合Llama 3.2的系统提示
     fun createSystemPrompt(): String {
@@ -76,7 +69,7 @@ class ToolRegistry {
         return """
 You are an AI assistant with access to the following tools:
 
-${Json.encodeToString(toolSchemas)}
+${if (tools.size == 0) "(No tool available)" else Json.encodeToString(toolSchemas)}
 
 To use a tool, respond with a JSON object in the following format:
 {
@@ -93,7 +86,10 @@ To use a tool, respond with a JSON object in the following format:
 }
 
 The arguments should be a valid JSON string matching the tool's parameter schema.
-""".trimIndent()
+
+You can reply user's request with suitable tools listed above while you need, don't use any tool not listed above.
+If there is no tools available, reply user's request directly.
+"""
     }
 
     fun generateCallId(): String {
@@ -103,51 +99,70 @@ The arguments should be a valid JSON string matching the tool's parameter schema
     }
 
     @OptIn(InternalSerializationApi::class)
-    suspend fun handleToolExecution(response: String): List<ToolResponse> {
+    suspend fun handleToolExecution(response: String): List<ToolResponse<*>> {
         try {
-            // 解析 LLM 的響應為 ToolCallsArray
-            val toolCalls = Json.decodeFromString<ToolCallsArray>(response)
-            // 處理每個工具調用
-            return toolCalls.tool_calls.map { toolCall ->
-                Log.e("handleToolExecution", toolCall.toString())
+
+            // 嘗試確定回應是否是JSON格式的工具調用
+            val trimmedResponse = response.trim()
+            if (!trimmedResponse.startsWith("{") || !trimmedResponse.endsWith("}")) {
+                // 如果不是JSON格式，將回應作為直接回答處理
+                return listOf(ToolResponse(
+                    id = generateCallId(),
+                    type = ToolResponseType.DIRECT_RESPONSE,
+                    output = response as Any
+                ))
+            }
+
+            val json = Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            }
+
+            val toolCalls = json.decodeFromString<ToolCallsArray>(response)
+            return toolCalls.toToolCallsList().map { toolCall ->
                 val tool = getTool(toolCall.function.name)
                 if (tool == null) {
-                    ToolResponse(
+//                    throw IllegalArgumentException("Tool ${toolCall.function.name} not found")
+                    return@map ToolResponse(
                         id = toolCall.id,
-                        output = "Error: Tool ${toolCall.function.name} not found"
+                        type = ToolResponseType.ERROR,
+                        output = "Tool ${toolCall.function.name} not found"
                     )
-                } else {
-                    try {
-                        // 獲取參數類型
-                        val parameterType = tool.getParameterType()
-                            ?: return@map ToolResponse(
-                                id = toolCall.id,
-                                output = "Error: Could not determine parameter type for tool"
-                            )
-
-                        // 使用參數類型的序列化器解析參數
-                        val serializer = parameterType.serializer()
-                        val arguments = Json.decodeFromString(serializer, toolCall.function.arguments)
-
-                        // 執行工具
-                        @Suppress("UNCHECKED_CAST")
-                        val result = (tool as BaseTool<Any>).invoke(arguments)
-
-                        ToolResponse(
+                }
+                try {
+                    val parameterType = tool.getParameterType()
+                        ?: return@map ToolResponse(
                             id = toolCall.id,
-                            output = result
+                            type = ToolResponseType.ERROR,
+                            output = "Could not determine parameter type for tool"
                         )
-                    } catch (e: Exception) {
-                        ToolResponse(
-                            id = toolCall.id,
-                            output = "Error executing tool: ${e.message}"
-                        )
-                    }
+
+//                    val returnType = tool.getReturnType()
+//                        ?: throw IllegalStateException("Could not determine return type for tool")
+
+                    val arguments = json.decodeFromString(
+                        parameterType.serializer(),
+                        toolCall.function.arguments
+                    )
+
+                    @Suppress("UNCHECKED_CAST")
+                    val result = (tool as BaseTool<Any, Any>).invoke(arguments)
+
+                    return@map ToolResponse(
+                        id = toolCall.id,
+                        output = result
+                    )
+                } catch (e: Exception) {
+                    return@map ToolResponse(
+                        id = toolCall.id,
+                        type = ToolResponseType.ERROR,
+                        output = "Error executing tool: ${e.message}"
+                    )
                 }
             }
         } catch (e: Exception) {
-            Log.e("ToolRegistry",e.toString())
-            return emptyList()
+            Log.e("ToolRegistry", e.toString())
+            throw e
         }
     }
 }
