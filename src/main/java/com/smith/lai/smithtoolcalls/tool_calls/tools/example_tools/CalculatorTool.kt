@@ -1,7 +1,7 @@
 package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
 
 import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.Tool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
 import kotlinx.serialization.Serializable
 
 
@@ -11,7 +11,7 @@ data class CalculatorInput(
     val param2: Int
 )
 
-@Tool(
+@ToolAnnotation(
     name = "calculator_add",
     description = "Add two numbers together",
     returnDescription = "The sum of the two numbers"

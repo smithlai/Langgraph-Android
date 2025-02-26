@@ -1,6 +1,5 @@
 package com.smith.lai.smithtoolcalls.tool_calls.tools
 
-import android.util.Log
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -115,8 +114,8 @@ abstract class BaseTool<TInput, TOutput> {
     private fun getPropertyDescription(property: KProperty1<*, *>): String {
         return "Parameter: ${property.name}"
     }
-    fun getToolAnnotation(): Tool {
-        val annotation = this::class.findAnnotation<Tool>() ?:
+    fun getToolAnnotation(): ToolAnnotation {
+        val annotation = this::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalStateException("Tool annotation not found")
         return annotation
     }

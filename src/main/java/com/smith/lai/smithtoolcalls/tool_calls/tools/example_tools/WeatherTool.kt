@@ -1,7 +1,7 @@
 package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
 
 import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.Tool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
 import kotlinx.serialization.Serializable
 
 
@@ -11,7 +11,7 @@ data class WeatherInput(
     val unit: String = "celsius"
 )
 
-@Tool(
+@ToolAnnotation(
     name = "get_weather",
     description = "Get the current weather in a given location",
     returnDescription = "The current weather conditions and temperature"

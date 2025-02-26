@@ -20,7 +20,7 @@ import kotlin.reflect.cast
 
 // 測試類別
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-class UnitToolCallTest {
+class UnitToolAnnotationCallTest {
     companion object{
         val TOOL_PACKAGE= "com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools"
 

@@ -1,7 +1,7 @@
 package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
 
 import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.Tool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +10,7 @@ data class TranslatorInput(
     val targetLanguage: String
 )
 
-@Tool(
+@ToolAnnotation(
     name = "translate_text",
     description = "Translate text to another language",
     returnDescription = "The translated text"

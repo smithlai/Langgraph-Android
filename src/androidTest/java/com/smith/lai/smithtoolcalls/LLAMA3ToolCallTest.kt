@@ -73,8 +73,6 @@ class LLAMA3ToolCallTest {
     @Before
     fun setup(){
         println("vvvvvvvv Running test: ${testName.methodName} vvvvvvvv")
-        println(package_name)
-
     }
 
 
