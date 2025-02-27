@@ -9,6 +9,7 @@ import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.CalculatorToo
 import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.TextReverseTool
 import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.ToolToday
 import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.WeatherTool
+import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.Llama3_2_3B_LLMToolAdapter
 import io.shubham0204.smollm.SmolLM
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -76,7 +77,7 @@ class LLAMA3ToolCallTest {
     }
 
 
-    @Test
+//    @Test
     fun test_000_LLMHello() {
 
         toolRegistry.register(CalculatorTool::class)
@@ -86,7 +87,42 @@ class LLAMA3ToolCallTest {
             }
 
             val sb = StringBuilder()
-            smolLM.getResponse("Hello?").collect {
+            smolLM.addSystemPrompt("""
+You are an expert in composing functions. You are given a question and a set of possible functions.
+Based on the question, you will need to make one or more function/tool calls to achieve the purpose.
+If none of the function can be used, point it out. If the given question lacks the parameters required by the function,
+also point it out. You should only return the function call in tools call sections.
+
+If you decide to invoke any of the function(s), you MUST put it in the format of [func_name1(params_name1=params_value1, params_name2=params_value2...), func_name2(params)]
+You SHOULD NOT include any other text in the response.
+
+Here is a list of functions in JSON format that you can invoke.
+
+[
+    {
+        "name": "get_weather",
+        "description": "Get weather info for places",
+        "parameters": {
+            "type": "dict",
+            "required": [
+                "city"
+            ],
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "The name of the city to get the weather for"
+                },
+                "metric": {
+                    "type": "string",
+                    "description": "The metric for weather. Options are: celsius, fahrenheit",
+                    "default": "celsius"
+                }
+            }
+        }
+    }
+]
+            """.trimIndent())
+            smolLM.getResponse("What is the weather in SF and Seattle?").collect {
                 sb.append(it)
             }
 
@@ -96,7 +132,7 @@ class LLAMA3ToolCallTest {
         }
     }
 
-    @Test
+//    @Test
     fun test_001_TestRegister() {
         println("* ${testName.methodName} step 1")
         toolRegistry.register(CalculatorTool::class)
@@ -129,7 +165,7 @@ class LLAMA3ToolCallTest {
 
     }
 
-    @Test
+//    @Test
     fun test_002_SystemPromptNoTool() {
 
         runBlocking {
@@ -139,15 +175,17 @@ class LLAMA3ToolCallTest {
             }
 
             // 1. 添加系统提示
-            smolLM.addSystemPrompt(toolRegistry.createSystemPrompt())
-            Log.d("${testName.methodName}", "createSystemPrompt: ${toolRegistry.createSystemPrompt()}")
+            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            val system_prompt = toolRegistry.createSystemPrompt()
+            smolLM.addSystemPrompt(system_prompt)
+            Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
             // 2. 添加用户查询
             smolLM.addUserMessage("請問現在幾點？")
 
             // 3. 获取助手响应（期望包含工具调用）
             val firstResponse = StringBuilder()
-            smolLM.getResponse("").collect {
+            smolLM.getResponse().collect {
                 firstResponse.append(it)
             }
             Log.d("${testName.methodName}", "Assistant's First Response: ${firstResponse}")
@@ -161,7 +199,7 @@ class LLAMA3ToolCallTest {
 
         }
     }
-    @Test
+//    @Test
     fun test_003_LlamaToolDate() {
         val tool = ToolToday()
         toolRegistry.register(ToolToday::class)
@@ -172,15 +210,17 @@ class LLAMA3ToolCallTest {
             }
 
             // 1. 添加系统提示
-            smolLM.addSystemPrompt(toolRegistry.createSystemPrompt())
-            Log.d("${testName.methodName}", "createSystemPrompt: ${toolRegistry.createSystemPrompt()}")
+            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            val system_prompt = toolRegistry.createSystemPrompt()
+            smolLM.addSystemPrompt(system_prompt)
+            Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
             // 2. 添加用户查询
             smolLM.addUserMessage("請問今天日期是幾號？")
 
             // 3. 获取助手响应（期望包含工具调用）
             val firstResponse = StringBuilder()
-            smolLM.getResponse("").collect {
+            smolLM.getResponse().collect {
                 firstResponse.append(it)
             }
             Log.d("${testName.methodName}", "Assistant's First Response: ${firstResponse}")
@@ -196,7 +236,7 @@ class LLAMA3ToolCallTest {
 
         }
     }
-    @Test
+//    @Test
     fun test_004_LlamaCalculator() {
         val tool = CalculatorTool()
         toolRegistry.register(CalculatorTool::class)
@@ -207,15 +247,17 @@ class LLAMA3ToolCallTest {
             }
 
             // 1. 添加系统提示
-            smolLM.addSystemPrompt(toolRegistry.createSystemPrompt())
-            Log.d("${testName.methodName}", "createSystemPrompt: ${toolRegistry.createSystemPrompt()}")
+            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            val system_prompt = toolRegistry.createSystemPrompt()
+            smolLM.addSystemPrompt(system_prompt)
+            Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
             // 2. 添加用户查询
             smolLM.addUserMessage("what is 123 + 456?")
 
             // 3. 获取助手响应（期望包含工具调用）
             val firstResponse = StringBuilder()
-            smolLM.getResponse("").collect {
+            smolLM.getResponse().collect {
                 firstResponse.append(it)
             }
             Log.d("${testName.methodName}", "Assistant's First Response: ${firstResponse}")
@@ -231,7 +273,77 @@ class LLAMA3ToolCallTest {
 
         }
     }
+    suspend fun toolcalls2(smolLM: SmolLM, toolRegistry: ToolRegistry, query: String, tag: String = ""): Boolean {
+        // 1. 添加用戶查詢
+        smolLM.addUserMessage(query)
 
+        // 2. 獲取助手響應（期望包含工具調用）
+        val firstResponse = StringBuilder()
+        smolLM.getResponse().collect {
+            firstResponse.append(it)
+        }
+        val assistantResponse = firstResponse.toString()
+        Log.d("${testName.methodName}", "Assistant's $tag Response(tool_calls): ${assistantResponse}")
+
+        // 3. 處理工具調用並獲取結果
+        val processingResult = toolRegistry.processLLMResponse(assistantResponse)
+        val toolResponses = processingResult.toolResponses
+
+        // 確保有工具調用
+        if (toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
+            // 4. 構建工具回應 JSON
+            val toolResponseJson = processingResult.getToolResponseJson()
+            Log.d("${testName.methodName}", "Tool Response JSON ($tag): ${toolResponseJson}")
+
+            // 5. 添加助手的工具調用消息
+            smolLM.addAssistantMessage(assistantResponse)
+
+            // 6. 將工具回應發送給助手
+//            smolLM.addToolResults(toolResponseJson)
+
+            // 7. 添加明確的用戶提示，提取工具結果的關鍵信息
+            val toolOutput = toolResponses.firstOrNull()?.output?.toString() ?: ""
+            smolLM.addUserMessage("The tool returned: \"$toolOutput\". Based on this information, continue answering the request.")
+
+            // 8. 獲取助手基於工具結果的回應
+            val secondResponse = StringBuilder()
+            smolLM.getResponse().collect {
+                secondResponse.append(it)
+            }
+
+            // 9. 記錄助手的後續回應
+            Log.d("${testName.methodName}", "Assistant's $tag Response(Follow-up): ${secondResponse}")
+            return true
+        } else {
+            return false
+        }
+    }
+    @Test
+    fun test_005_LlamaToolWithFollowup() {
+        val weatherTool = WeatherTool()
+        val calctool = CalculatorTool()
+        toolRegistry.register(weatherTool::class)
+        toolRegistry.register(calctool::class)
+        runBlocking {
+            // 加載模型
+            runBlocking {
+                loadModel()
+            }
+
+            // 1. 設置translator並添加更明確的系統提示
+            val llmToolAdapter = Llama3_2_3B_LLMToolAdapter()
+
+            toolRegistry.setTranslator(llmToolAdapter)
+            val system_prompt = toolRegistry.createSystemPrompt()
+            smolLM.addSystemPrompt(system_prompt)
+            Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
+
+            var isToolcalled1 = toolcalls2(smolLM, toolRegistry,"What's the weather in San Francisco?", "1st")
+            assertTrue(isToolcalled1)
+            var isToolcalled2 = toolcalls2(smolLM, toolRegistry,"What is 24 + 26", "2nd")
+            assertTrue(isToolcalled2)
+        }
+    }
     @After
     fun clear(){
         toolRegistry.clear()

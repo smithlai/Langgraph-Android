@@ -1,4 +1,5 @@
 package com.smith.lai.smithtoolcalls
+
 import android.util.Log
 import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
 import com.smith.lai.smithtoolcalls.tool_calls.tools.FinishReason
@@ -8,9 +9,10 @@ import com.smith.lai.smithtoolcalls.tool_calls.tools.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.tool_calls.tools.TokenUsage
 import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
 import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallInfo
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallsArray
 import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponse
 import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponseType
+import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.BaseLLMToolAdapter
+import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.Llama3_2_3B_LLMToolAdapter
 import kotlinx.serialization.json.Json
 import org.koin.core.annotation.Single
 import kotlin.reflect.KClass
@@ -26,6 +28,27 @@ class ToolRegistry {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+    }
+
+    // 新增：保存當前 Translator 實例
+    private var translator: BaseLLMToolAdapter? = null
+
+    /**
+     * 設置 Translator
+     */
+    fun setTranslator(newTranslator: BaseLLMToolAdapter) {
+        this.translator = newTranslator
+    }
+
+    /**
+     * 獲取當前 Translator
+     * 如果未設置，默認創建 Llama3_2_Translator
+     */
+    fun getTranslator(): BaseLLMToolAdapter {
+        if (translator == null) {
+            translator = Llama3_2_3B_LLMToolAdapter()
+        }
+        return translator!!
     }
 
     fun unregister(name: String) {
@@ -72,33 +95,8 @@ class ToolRegistry {
 
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
-    // 创建适合Llama 3.2的系统提示
-    fun createSystemPrompt(): String {
-        val toolSchemas = tools.values.map { it.getJsonSchema() }
-        return """
-You are an AI assistant with access to the following tools:
-
-${if (tools.size == 0) "(No tool available)" else Json.encodeToString(toolSchemas)}
-
-To use a tool, respond with a JSON object in the following format:
-{
-    "tool_calls": [
-        {
-            "id": "call_xxxx",
-            "type": "function",
-            "function": {
-                "name": "tool_name",
-                "arguments": "{\"param1\": value1, \"param2\": value2}"
-            }
-        }
-    ]
-}
-
-The arguments should be a valid JSON string matching the tool's parameter schema.
-
-You can reply user's request with suitable tools listed above while you need, don't use any tool not listed above.
-If there is no tools available, reply user's request directly.
-"""
+    fun createSystemPrompt() : String{
+        return translator?.createSystemPrompt(getTools()) ?: ""
     }
 
     fun generateCallId(): String {
@@ -109,46 +107,12 @@ If there is no tools available, reply user's request directly.
 
     /**
      * 轉換LLM的原始回應為結構化格式
-     * 使用現有的ToolCallsArray和ToolCallArguments
+     * 使用當前設置的 Translator 來解析回應
      */
     fun convertToStructured(llmResponse: String): StructuredLLMResponse {
         try {
-            // 檢查是否是JSON格式
-            val trimmedResponse = llmResponse.trim()
-            if (!trimmedResponse.startsWith("{") || !trimmedResponse.endsWith("}")) {
-                // 如果不是JSON格式，視為直接文本回應
-                return StructuredLLMResponse(
-                    content = llmResponse,
-                    metadata = ResponseMetadata(
-                        tokenUsage = estimateTokenUsage(llmResponse),
-                        finishReason = FinishReason.STOP.value
-                    )
-                )
-            }
-
-            // 嘗試解析為工具調用格式
-            try {
-                val toolCallsArray = json.decodeFromString<ToolCallsArray>(trimmedResponse)
-                val toolCalls = toolCallsArray.toToolCallsList()
-
-                return StructuredLLMResponse(
-                    toolCalls = toolCalls,
-                    metadata = ResponseMetadata(
-                        tokenUsage = estimateTokenUsage(llmResponse),
-                        finishReason = FinishReason.TOOL_CALLS.value
-                    )
-                )
-            } catch (e: Exception) {
-                // 如果不是標準工具調用格式，可能是其他JSON格式的回應
-                Log.d("ToolRegistry", "Not a standard tool call format: ${e.message}")
-                return StructuredLLMResponse(
-                    content = llmResponse,
-                    metadata = ResponseMetadata(
-                        tokenUsage = estimateTokenUsage(llmResponse),
-                        finishReason = FinishReason.STOP.value
-                    )
-                )
-            }
+            // 使用 Translator 解析回應
+            return getTranslator().parseResponse(llmResponse)
         } catch (e: Exception) {
             Log.e("ToolRegistry", "Error converting LLM response: ${e.message}")
             // 出現任何異常，返回原始文本作為內容
@@ -177,7 +141,6 @@ If there is no tools available, reply user's request directly.
 
     /**
      * 處理LLM回應的整個流程：從原始回應到工具執行結果
-     * 優化：使用已解析的結構化回應來執行工具，避免重複解析
      */
     @OptIn(InternalSerializationApi::class)
     suspend fun processLLMResponse(llmResponse: String): ProcessingResult {
@@ -274,7 +237,7 @@ If there is no tools available, reply user's request directly.
     }
 
     /**
-     * 處理原始JSON回應並執行工具
+     * 處理原始回應並執行工具
      * 為了向後兼容保留此方法，但內部使用新的處理流程
      */
     @OptIn(InternalSerializationApi::class)
