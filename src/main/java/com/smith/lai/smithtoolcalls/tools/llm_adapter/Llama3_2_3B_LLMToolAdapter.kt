@@ -88,7 +88,7 @@ Format your answer in a clear, human-readable way.
 
                             // 添加必需參數列表
                             put("required", buildJsonArray {
-                                requiredProperties.forEach { add(it) }
+                                requiredProperties.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
                             })
 
                             // 添加屬性定義
