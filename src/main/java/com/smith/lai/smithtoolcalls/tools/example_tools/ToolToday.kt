@@ -1,13 +1,13 @@
-package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
+package com.smith.lai.smithtoolcalls.tools.example_tools
 
-import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @ToolAnnotation(name = "tool_today", description = "取得今天日期")
-class ToolToday : BaseTool<Unit,String>() {
+class ToolToday : BaseTool<Unit, String>() {
     override suspend fun invoke(input: Unit): String {
         delay(1000)
         val formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")

@@ -1,13 +1,13 @@
-package com.smith.lai.smithtoolcalls.tool_calls.tools.translator
+package com.smith.lai.smithtoolcalls.tools.llm_adapter
 
-import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.FinishReason
-import com.smith.lai.smithtoolcalls.tool_calls.tools.FunctionCall
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ResponseMetadata
-import com.smith.lai.smithtoolcalls.tool_calls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tool_calls.tools.TokenUsage
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallInfo
+import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tools.FinishReason
+import com.smith.lai.smithtoolcalls.tools.FunctionCall
+import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
+import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
+import com.smith.lai.smithtoolcalls.tools.TokenUsage
+import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject

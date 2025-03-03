@@ -1,7 +1,7 @@
-package com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools
+package com.smith.lai.smithtoolcalls.tools.example_tools
 
-import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
 import kotlinx.serialization.Serializable
 
 @Serializable

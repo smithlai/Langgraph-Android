@@ -1,4 +1,4 @@
-package com.smith.lai.smithtoolcalls.tool_calls.tools
+package com.smith.lai.smithtoolcalls.tools
 
 import kotlinx.serialization.Serializable
 

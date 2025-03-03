@@ -1,12 +1,12 @@
 package com.smith.lai.smithtoolcalls
 
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponseType
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.CalculatorInput
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.CalculatorTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.TextReverseInput
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.TextReverseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.ToolToday
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.WeatherTool
+import com.smith.lai.smithtoolcalls.tools.ToolResponseType
+import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorInput
+import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
+import com.smith.lai.smithtoolcalls.tools.example_tools.TextReverseInput
+import com.smith.lai.smithtoolcalls.tools.example_tools.TextReverseTool
+import com.smith.lai.smithtoolcalls.tools.example_tools.ToolToday
+import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test

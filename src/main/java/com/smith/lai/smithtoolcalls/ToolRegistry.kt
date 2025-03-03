@@ -1,26 +1,27 @@
 package com.smith.lai.smithtoolcalls
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.FinishReason
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ProcessingResult
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ResponseMetadata
-import com.smith.lai.smithtoolcalls.tool_calls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tool_calls.tools.TokenUsage
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolAnnotation
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallInfo
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponse
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponseType
-import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.BaseLLMToolAdapter
-import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.Llama3_2_3B_LLMToolAdapter
-import kotlinx.serialization.json.Json
-import org.koin.core.annotation.Single
-import kotlin.reflect.KClass
-import kotlin.reflect.full.*
+import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tools.FinishReason
+import com.smith.lai.smithtoolcalls.tools.ProcessingResult
+import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
+import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
+import com.smith.lai.smithtoolcalls.tools.TokenUsage
+import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
+import com.smith.lai.smithtoolcalls.tools.ToolResponse
+import com.smith.lai.smithtoolcalls.tools.ToolResponseType
+import com.smith.lai.smithtoolcalls.tools.llm_adapter.BaseLLMToolAdapter
+import com.smith.lai.smithtoolcalls.tools.llm_adapter.Llama3_2_3B_LLMToolAdapter
 import io.github.classgraph.ClassGraph
 import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
+import org.koin.core.annotation.Single
 import java.util.UUID
+import kotlin.reflect.KClass
+import kotlin.reflect.full.createInstance
+import kotlin.reflect.full.findAnnotation
 
 @Single
 class ToolRegistry {
@@ -36,7 +37,7 @@ class ToolRegistry {
     /**
      * 設置 Translator
      */
-    fun setTranslator(newTranslator: BaseLLMToolAdapter) {
+    fun setLLMToolAdapter(newTranslator: BaseLLMToolAdapter) {
         this.translator = newTranslator
     }
 
@@ -84,7 +85,7 @@ class ToolRegistry {
         val toolClassInfos = scanResult.getClassesWithAnnotation(ToolAnnotation::class.java.name)
         val toolClasses = toolClassInfos.map {
             @Suppress("UNCHECKED_CAST")
-            Class.forName(it.name).kotlin as KClass<out BaseTool<*,*>>
+            Class.forName(it.name).kotlin as KClass<out BaseTool<*, *>>
         }
         register(toolClasses)
     }

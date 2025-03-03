@@ -1,8 +1,8 @@
-package com.smith.lai.smithtoolcalls.tool_calls.tools.translator
+package com.smith.lai.smithtoolcalls.tools.llm_adapter
 
-import com.smith.lai.smithtoolcalls.tool_calls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolCallInfo
+import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
+import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
 import kotlin.reflect.KProperty1
 
 abstract class BaseLLMToolAdapter {

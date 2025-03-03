@@ -3,13 +3,13 @@ package com.smith.lai.smithtoolcalls
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.smith.lai.smithtoolcalls.tool_calls.tools.ToolResponseType
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.CalculatorInput
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.CalculatorTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.TextReverseTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.ToolToday
-import com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools.WeatherTool
-import com.smith.lai.smithtoolcalls.tool_calls.tools.translator.Llama3_2_3B_LLMToolAdapter
+import com.smith.lai.smithtoolcalls.tools.ToolResponseType
+import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorInput
+import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
+import com.smith.lai.smithtoolcalls.tools.example_tools.TextReverseTool
+import com.smith.lai.smithtoolcalls.tools.example_tools.ToolToday
+import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
+import com.smith.lai.smithtoolcalls.tools.llm_adapter.Llama3_2_3B_LLMToolAdapter
 import io.shubham0204.smollm.SmolLM
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -34,8 +34,8 @@ import kotlin.reflect.cast
 class LLAMA3ToolCallTest {
 
     companion object{
-        val TOOL_PACKAGE= "com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools"
-        val MODEL_PATH = "/data/local/tmp/llm/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf"
+        const val TOOL_PACKAGE= "com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools"
+        const val MODEL_PATH = "/data/local/tmp/llm/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf"
 
     }
     @get:Rule
@@ -175,7 +175,7 @@ Here is a list of functions in JSON format that you can invoke.
             }
 
             // 1. 添加系统提示
-            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
             val system_prompt = toolRegistry.createSystemPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
@@ -210,7 +210,7 @@ Here is a list of functions in JSON format that you can invoke.
             }
 
             // 1. 添加系统提示
-            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
             val system_prompt = toolRegistry.createSystemPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
@@ -247,7 +247,7 @@ Here is a list of functions in JSON format that you can invoke.
             }
 
             // 1. 添加系统提示
-            toolRegistry.setTranslator(Llama3_2_3B_LLMToolAdapter())
+            toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
             val system_prompt = toolRegistry.createSystemPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
@@ -288,7 +288,6 @@ Here is a list of functions in JSON format that you can invoke.
         // 3. 處理工具調用並獲取結果
         val processingResult = toolRegistry.processLLMResponse(assistantResponse)
         val toolResponses = processingResult.toolResponses
-
         // 確保有工具調用
         if (toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
             // 4. 構建工具回應 JSON
@@ -322,8 +321,10 @@ Here is a list of functions in JSON format that you can invoke.
     fun test_005_LlamaToolWithFollowup() {
         val weatherTool = WeatherTool()
         val calctool = CalculatorTool()
+//        val reversetool = TextReverseTool()
         toolRegistry.register(weatherTool::class)
         toolRegistry.register(calctool::class)
+//        toolRegistry.register(reversetool::class)
         runBlocking {
             // 加載模型
             runBlocking {
@@ -333,15 +334,17 @@ Here is a list of functions in JSON format that you can invoke.
             // 1. 設置translator並添加更明確的系統提示
             val llmToolAdapter = Llama3_2_3B_LLMToolAdapter()
 
-            toolRegistry.setTranslator(llmToolAdapter)
+            toolRegistry.setLLMToolAdapter(llmToolAdapter)
             val system_prompt = toolRegistry.createSystemPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
             var isToolcalled1 = toolcalls2(smolLM, toolRegistry,"What's the weather in San Francisco?", "1st")
             assertTrue(isToolcalled1)
-            var isToolcalled2 = toolcalls2(smolLM, toolRegistry,"What is 24 + 26", "2nd")
-            assertTrue(isToolcalled2)
+//            var isToolcalled2 = toolcalls2(smolLM, toolRegistry,"Please reverse the text of your previous answer", "2nd")
+//            assertTrue(isToolcalled2)
+            var isToolcalled3 = toolcalls2(smolLM, toolRegistry,"What is 24 + 26", "3rd")
+            assertTrue(isToolcalled3)
         }
     }
     @After
