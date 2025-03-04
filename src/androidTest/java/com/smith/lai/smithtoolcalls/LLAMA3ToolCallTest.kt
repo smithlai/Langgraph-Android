@@ -191,9 +191,9 @@ Here is a list of functions in JSON format that you can invoke.
             Log.d("${testName.methodName}", "Assistant's First Response: ${firstResponse}")
 
             // 4. 處理工具調用並獲取結果
-            val toolResponses = toolRegistry.handleToolExecution(firstResponse.toString())
-
-            // 5. 工具不存在執行結果
+            val processingResult = toolRegistry.processLLMResponse(firstResponse.toString())
+            val toolResponses = processingResult.toolResponses
+                // 5. 工具不存在執行結果
             Log.d("${testName.methodName}", "Response: ${toolResponses.first().output}")
             assertTrue(toolResponses.first().type == ToolResponseType.DIRECT_RESPONSE)
 
@@ -227,7 +227,8 @@ Here is a list of functions in JSON format that you can invoke.
 
             // 4. 處理工具調用並獲取結果
             val answer = tool.getReturnType()?.cast(tool.invoke(Unit))
-            val toolResponses = toolRegistry.handleToolExecution(firstResponse.toString())
+            val processingResult = toolRegistry.processLLMResponse(firstResponse.toString())
+            val toolResponses = processingResult.toolResponses
 
             // 5. 工具執行結果
             Log.d("${testName.methodName}", "Date:${toolResponses.first().output}($answer)")
@@ -264,7 +265,8 @@ Here is a list of functions in JSON format that you can invoke.
 
             // 4. 處理工具調用並獲取結果
             val answer = tool.getReturnType()?.cast(tool.invoke(CalculatorInput(123, 456)))
-            val toolResponses = toolRegistry.handleToolExecution(firstResponse.toString())
+            val processingResult = toolRegistry.processLLMResponse(firstResponse.toString())
+            val toolResponses = processingResult.toolResponses
 
             // 5. 工具執行結果
             Log.d("${testName.methodName}", "123+456=${toolResponses.first().output}($answer)")
@@ -273,7 +275,7 @@ Here is a list of functions in JSON format that you can invoke.
 
         }
     }
-    suspend fun toolcalls2(smolLM: SmolLM, toolRegistry: ToolRegistry, query: String, tag: String = ""): Boolean {
+    suspend fun toolcalls(smolLM: SmolLM, toolRegistry: ToolRegistry, query: String, tag: String = ""): Boolean {
         // 1. 添加用戶查詢
         smolLM.addUserMessage(query)
 
@@ -287,33 +289,34 @@ Here is a list of functions in JSON format that you can invoke.
 
         // 3. 處理工具調用並獲取結果
         val processingResult = toolRegistry.processLLMResponse(assistantResponse)
-        val toolResponses = processingResult.toolResponses
-        // 確保有工具調用
-        if (toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
-            // 4. 構建工具回應 JSON
-            val toolResponseJson = processingResult.getToolResponseJson()
-            Log.d("${testName.methodName}", "Tool Response JSON ($tag): ${toolResponseJson}")
 
-            // 5. 添加助手的工具調用消息
-//            smolLM.addAssistantMessage(assistantResponse)
+        // 確保有工具調用且需要後續處理
+        if (processingResult.toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
+            Log.d("${testName.methodName}", "Tool Response JSON ($tag): ${processingResult.getToolResponseJson()}")
 
-            // 6. 將工具回應發送給助手
-//            smolLM.addToolResults(toolResponseJson)
+            // 使用ProcessingResult中的buildFollowUpPrompt方法來構建適當的後續提示詞
+            // 每個工具現在可以提供自定義的後續提示詞
+            val followUpPrompt = processingResult.buildFollowUpPrompt()
 
-            // 7. 添加明確的用戶提示，提取工具結果的關鍵信息
-            val toolOutput = toolResponses.firstOrNull()?.output?.toString() ?: ""
-            smolLM.addUserMessage("The tool returned: \"$toolOutput\". Based on this information, continue answering the request.")
+            // 添加後續提示詞給助手
+            smolLM.addUserMessage(followUpPrompt)
 
-            // 8. 獲取助手基於工具結果的回應
+            // 獲取助手基於工具結果的回應
             val secondResponse = StringBuilder()
             smolLM.getResponse().collect {
                 secondResponse.append(it)
             }
 
-            // 9. 記錄助手的後續回應
+            // 記錄助手的後續回應
             Log.d("${testName.methodName}", "Assistant's $tag Response(Follow-up): ${secondResponse}")
             return true
+        } else if (processingResult.toolResponses.isNotEmpty() && !processingResult.requiresFollowUp) {
+            // 工具被調用但不需要後續處理（例如UI導航工具）
+            Log.d("${testName.methodName}", "Tool was called but no follow-up required ($tag)")
+            return true
         } else {
+            // 沒有工具被調用
+            Log.d("${testName.methodName}", "No tools were called ($tag)")
             return false
         }
     }
@@ -339,14 +342,13 @@ Here is a list of functions in JSON format that you can invoke.
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
-            var isToolcalled1 = toolcalls2(smolLM, toolRegistry,"What's the weather in San Francisco?", "1st")
+            var isToolcalled1 = toolcalls(smolLM, toolRegistry,"What's the weather in San Francisco?", "1st")
             assertTrue(isToolcalled1)
-//            var isToolcalled2 = toolcalls2(smolLM, toolRegistry,"Please reverse the text of your previous answer", "2nd")
+//            var isToolcalled2 = toolcalls(smolLM, toolRegistry,"What is 24 + 26", "2nd")
 //            assertTrue(isToolcalled2)
-            var isToolcalled3 = toolcalls2(smolLM, toolRegistry,"What is 24 + 26", "3rd")
-            assertTrue(isToolcalled3)
         }
     }
+
     @After
     fun clear(){
         toolRegistry.clear()

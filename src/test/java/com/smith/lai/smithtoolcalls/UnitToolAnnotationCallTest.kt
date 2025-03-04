@@ -22,7 +22,7 @@ import kotlin.reflect.cast
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class UnitToolAnnotationCallTest {
     companion object{
-        val TOOL_PACKAGE= "com.smith.lai.smithtoolcalls.tool_calls.tools.example_tools"
+        val TOOL_PACKAGE= "com.smith.lai.smithtoolcalls.tools.example_tools"
 
     }
     @get:Rule
@@ -68,25 +68,29 @@ class UnitToolAnnotationCallTest {
     }
     @Test
     fun test_001_testNoTool() {
-        val toolCall = """
-{
-    "tool_calls": [
-        {
-            "id": "${toolRegistry.generateCallId()}",
-            "type": "function",
-            "function": {
-                "name": "invalid_tool",
-                "arguments": "{}"
-            }
-        }
-    ]
-}
-"""
+        val toolCall = "[invalid_tool()]"
+//        val toolCall = """
+//{
+//    "tool_calls": [
+//        {
+//            "id": "${toolRegistry.generateCallId()}",
+//            "type": "function",
+//            "function": {
+//                "name": "invalid_tool",
+//                "arguments": "{}"
+//            }
+//        }
+//    ]
+//}
+//"""
+
 
         runBlocking {
-            val response = toolRegistry.handleToolExecution(toolCall)
-            println("${response.first().output}")
-            assertTrue(response.first().type == ToolResponseType.ERROR)
+            val processingResult = toolRegistry.processLLMResponse(toolCall.toString())
+            val toolResponses = processingResult.toolResponses
+            println("${toolResponses.first().output}")
+            println("${toolResponses.first().type}")
+            assertTrue(toolResponses.first().type == ToolResponseType.ERROR)
         }
     }
     @Test
@@ -94,26 +98,28 @@ class UnitToolAnnotationCallTest {
 
         toolRegistry.scanTools(TOOL_PACKAGE)
         val tool = ToolToday()
-        val toolCall = """
-{
-    "tool_calls": [
-        {
-            "id": "${toolRegistry.generateCallId()}",
-            "type": "function",
-            "function": {
-                "name": "${tool.getToolAnnotation().name}",
-                "arguments": "{}"
-            }
-        }
-    ]
-}
-"""
+        val toolCall = "[${tool.getToolAnnotation().name}()]"
+//        val toolCall = """
+//{
+//    "tool_calls": [
+//        {
+//            "id": "${toolRegistry.generateCallId()}",
+//            "type": "function",
+//            "function": {
+//                "name": "${tool.getToolAnnotation().name}",
+//                "arguments": "{}"
+//            }
+//        }
+//    ]
+//}
+//"""
 
         runBlocking {
             val answer = tool.getReturnType()?.cast(tool.invoke(Unit))
-            val response = toolRegistry.handleToolExecution(toolCall)
-            println("${response.first().output} == $answer")
-            assertTrue(response.first().output == answer)
+            val processingResult = toolRegistry.processLLMResponse(toolCall)
+            val toolResponses = processingResult.toolResponses
+            println("${toolResponses.first().output} == $answer")
+            assertTrue(toolResponses.first().output == answer)
         }
     }
     @Test
@@ -122,52 +128,56 @@ class UnitToolAnnotationCallTest {
         toolRegistry.scanTools(TOOL_PACKAGE)
         val testinput = "Hello World Kotlin"
         val tool = TextReverseTool()
-        val toolCall = """
-{
-    "tool_calls": [
-        {
-            "id": "${toolRegistry.generateCallId()}",
-            "type": "function",
-            "function": {
-                "name": "${tool.getToolAnnotation().name}",
-                "arguments": "{\"text\": \"$testinput\"}"
-            }
-        }
-    ]
-}
-"""
+        val toolCall = "[${tool.getToolAnnotation().name}(text=$testinput)]"
+//        val toolCall = """
+//{
+//    "tool_calls": [
+//        {
+//            "id": "${toolRegistry.generateCallId()}",
+//            "type": "function",
+//            "function": {
+//                "name": "${tool.getToolAnnotation().name}",
+//                "arguments": "{\"text\": \"$testinput\"}"
+//            }
+//        }
+//    ]
+//}
+//"""
 
         runBlocking {
             val answer = tool.getReturnType()?.cast(tool.invoke(TextReverseInput(testinput)))
-            val response = toolRegistry.handleToolExecution(toolCall)
-            println("$testinput => ${response.first().output}(${answer})")
-            assertTrue(response.first().output == answer)
+            val processingResult = toolRegistry.processLLMResponse(toolCall)
+            val toolResponses = processingResult.toolResponses
+            println("$testinput => ${toolResponses.first().output}(${answer})")
+            assertTrue(toolResponses.first().output == answer)
         }
     }
     @Test
     fun test_004_testCalculatorCall() {
         toolRegistry.scanTools(TOOL_PACKAGE)
         val tool = CalculatorTool()
-        val toolCall = """
-{
-    "tool_calls": [
-        {
-            "id": "${toolRegistry.generateCallId()}",
-            "type": "function",
-            "function": {
-                "name": "${tool.getToolAnnotation().name}",
-                "arguments": "{\"param1\": 42, \"param2\": 58}"
-            }
-        }
-    ]
-}
-"""
+        val toolCall = "[${tool.getToolAnnotation().name}(param1=42, param2=58)]"
+//        val toolCall = """
+//{
+//    "tool_calls": [
+//        {
+//            "id": "${toolRegistry.generateCallId()}",
+//            "type": "function",
+//            "function": {
+//                "name": "${tool.getToolAnnotation().name}",
+//                "arguments": "{\"param1\": 42, \"param2\": 58}"
+//            }
+//        }
+//    ]
+//}
+//"""
 
         runBlocking {
             val answer = tool.getReturnType()?.cast(tool.invoke(CalculatorInput(42,58)))
-            val response = toolRegistry.handleToolExecution(toolCall)
-            println("42 + 58 = ${response.first().output}($answer)")
-            assertTrue(response.first().output == answer)
+            val processingResult = toolRegistry.processLLMResponse(toolCall)
+            val toolResponses = processingResult.toolResponses
+            println("42 + 58 = ${toolResponses.first().output}($answer)")
+            assertTrue(toolResponses.first().output == answer)
         }
     }
 

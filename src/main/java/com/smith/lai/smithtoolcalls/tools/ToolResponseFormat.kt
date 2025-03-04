@@ -25,6 +25,7 @@ enum class ToolResponseType(val value: String) {
         }
     }
 }
+
 enum class FinishReason(val value: String) {
     STOP("stop"),
     TOOL_CALLS("tool_calls"),
@@ -39,13 +40,27 @@ enum class FinishReason(val value: String) {
     }
 }
 
+/**
+ * 工具後續處理元數據
+ */
+@Serializable
+data class ToolFollowUpMetadata(
+    // 是否需要後續處理
+    val requiresFollowUp: Boolean = true,
+    // 是否應該終止流程
+    val shouldTerminateFlow: Boolean = false,
+    // 自定義的後續提示詞
+    val customFollowUpPrompt: String = ""
+)
+
 @Serializable
 data class ToolResponse<T>(
     val id: String,
     val type: ToolResponseType = ToolResponseType.FUNCTION,
-    val output: T
+    val output: T,
+    // 新增：直接包含後續處理元數據
+    val followUpMetadata: ToolFollowUpMetadata = ToolFollowUpMetadata()
 )
-
 
 /**
  * 結構化的LLM回應，使用現有的ToolCallArguments
@@ -72,9 +87,14 @@ data class StructuredLLMResponse(
  */
 data class ProcessingResult(
     val structuredResponse: StructuredLLMResponse,
-    val toolResponses: List<ToolResponse<*>>,
-    val requiresFollowUp: Boolean
+    val toolResponses: List<ToolResponse<*>>
 ) {
+    /**
+     * 檢查是否需要後續處理
+     */
+    val requiresFollowUp: Boolean
+        get() = toolResponses.any { it.followUpMetadata.requiresFollowUp } && !shouldTerminateFlow()
+
     /**
      * 獲取格式化的工具回應JSON，用於發送回LLM
      */
@@ -95,6 +115,36 @@ data class ProcessingResult(
         }
     }
 
+    /**
+     * 構建基於工具元數據的後續提示詞
+     */
+    fun buildFollowUpPrompt(): String {
+        val followUpBuilder = StringBuilder()
+
+        toolResponses.forEachIndexed { index, response ->
+            val metadata = response.followUpMetadata
+
+            if (metadata.customFollowUpPrompt.isNotEmpty()) {
+                // 使用工具提供的自定義提示詞
+                followUpBuilder.append(metadata.customFollowUpPrompt)
+            } else {
+                // 使用默認提示詞格式
+                followUpBuilder.append("The tool returned: \"${response.output}\". ")
+            }
+
+            if (index < toolResponses.size - 1) {
+                followUpBuilder.append("\n\n")
+            }
+        }
+
+        // 如果沒有非空的自定義提示詞，添加標準指令
+        if (!toolResponses.any { it.followUpMetadata.customFollowUpPrompt.isNotEmpty() }) {
+            followUpBuilder.append("\nBased on this information, continue answering the request.")
+        }
+
+        return followUpBuilder.toString()
+    }
+
     private fun formatOutput(output: Any?): String {
         return when (output) {
             null -> "null"
@@ -103,6 +153,13 @@ data class ProcessingResult(
             is String -> "\"${output.replace("\"", "\\\"")}\""
             else -> "\"${output.toString().replace("\"", "\\\"")}\""
         }
+    }
+
+    /**
+     * 檢查是否有任何工具要求終止流程
+     */
+    fun shouldTerminateFlow(): Boolean {
+        return toolResponses.any { it.followUpMetadata.shouldTerminateFlow }
     }
 }
 
@@ -114,3 +171,4 @@ data class TokenUsage(
     val completionTokens: Int = 0,
     val totalTokens: Int = 0
 )
+

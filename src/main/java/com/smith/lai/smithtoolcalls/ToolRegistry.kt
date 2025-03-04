@@ -9,6 +9,7 @@ import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.tools.TokenUsage
 import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
 import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
+import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponseType
 import com.smith.lai.smithtoolcalls.tools.llm_adapter.BaseLLMToolAdapter
@@ -143,12 +144,11 @@ class ToolRegistry {
     /**
      * 處理LLM回應的整個流程：從原始回應到工具執行結果
      */
-    @OptIn(InternalSerializationApi::class)
     suspend fun processLLMResponse(llmResponse: String): ProcessingResult {
         try {
             // 將LLM回應轉換為結構化格式
             val structuredResponse = convertToStructured(llmResponse)
-
+            println(structuredResponse.toolCalls.size)
             // 如果不包含工具調用，創建一個直接回應
             if (!structuredResponse.hasToolCalls()) {
                 return ProcessingResult(
@@ -157,20 +157,18 @@ class ToolRegistry {
                         ToolResponse(
                             id = generateCallId(),
                             type = ToolResponseType.DIRECT_RESPONSE,
-                            output = structuredResponse.content
+                            output = structuredResponse.content,
+                            followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = false)
                         )
-                    ),
-                    requiresFollowUp = false
+                    )
                 )
             }
 
-            // 使用已解析的結構化回應執行工具
+            // 執行工具
             val toolResponses = executeTools(structuredResponse.toolCalls)
-
             return ProcessingResult(
                 structuredResponse = structuredResponse,
-                toolResponses = toolResponses,
-                requiresFollowUp = toolResponses.none { it.type == ToolResponseType.DIRECT_RESPONSE }
+                toolResponses = toolResponses
             )
         } catch (e: Exception) {
             Log.e("ToolRegistry", "Error processing LLM response: ${e.message}")
@@ -185,103 +183,119 @@ class ToolRegistry {
                     ToolResponse(
                         id = generateCallId(),
                         type = ToolResponseType.ERROR,
-                        output = "Error processing response: ${e.message}"
+                        output = "Error processing response: ${e.message}",
+                        followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = false)
                     )
-                ),
-                requiresFollowUp = false
+                )
             )
         }
     }
-
-    /**
-     * 使用已解析的工具調用信息執行工具
-     */
     @OptIn(InternalSerializationApi::class)
     private suspend fun executeTools(toolCalls: List<ToolCallInfo>): List<ToolResponse<*>> {
-        return toolCalls.map { toolCall ->
+        val toolResponses = mutableListOf<ToolResponse<*>>()
+
+        for (toolCall in toolCalls) {
             val tool = getTool(toolCall.function.name)
             if (tool == null) {
-                return@map ToolResponse(
+                // 處理找不到工具的情況
+                val errorResponse = ToolResponse(
                     id = toolCall.id,
                     type = ToolResponseType.ERROR,
-                    output = "Tool ${toolCall.function.name} not found"
+                    output = "Tool ${toolCall.function.name} not found",
+                    // 默認的後續處理元數據
+                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )
+                toolResponses.add(errorResponse)
+                continue
             }
+
             try {
                 val parameterType = tool.getParameterType()
-                    ?: return@map ToolResponse(
-                        id = toolCall.id,
-                        type = ToolResponseType.ERROR,
-                        output = "Could not determine parameter type for tool"
-                    )
+                    ?: throw IllegalStateException("Could not determine parameter type for tool")
 
                 val arguments = json.decodeFromString(
                     parameterType.serializer(),
                     toolCall.function.arguments
                 )
 
+                // 執行工具
                 @Suppress("UNCHECKED_CAST")
                 val result = (tool as BaseTool<Any, Any>).invoke(arguments)
 
-                return@map ToolResponse(
+                // 獲取後續處理元數據
+                @Suppress("UNCHECKED_CAST")
+                val metadata = tool.getFollowUpMetadata(result)
+
+                // 創建包含後續處理元數據的工具回應
+                val response = ToolResponse(
                     id = toolCall.id,
-                    output = result
+                    output = result,
+                    followUpMetadata = metadata
                 )
+                toolResponses.add(response)
+
             } catch (e: Exception) {
-                return@map ToolResponse(
+                // 處理執行錯誤
+                val errorResponse = ToolResponse(
                     id = toolCall.id,
                     type = ToolResponseType.ERROR,
-                    output = "Error executing tool: ${e.message}"
+                    output = "Error executing tool: ${e.message}",
+                    // 默認後續處理元數據
+                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )
+                toolResponses.add(errorResponse)
             }
         }
+
+        return toolResponses
     }
 
-    /**
-     * 處理原始回應並執行工具
-     * 為了向後兼容保留此方法，但內部使用新的處理流程
-     */
-    @OptIn(InternalSerializationApi::class)
-    suspend fun handleToolExecution(response: String): List<ToolResponse<*>> {
-        try {
-            val processingResult = processLLMResponse(response)
-            return processingResult.toolResponses
-        } catch (e: Exception) {
-            Log.e("ToolRegistry", e.toString())
-            throw e
-        }
-    }
 
-    /**
-     * 將工具回應格式化為用於發送回LLM的JSON字符串
-     */
-    fun formatToolResponsesToJson(toolResponses: List<ToolResponse<*>>): String {
-        return buildString {
-            append("[")
-            toolResponses.forEachIndexed { index, response ->
-                if (index > 0) append(",")
-                append("""
-                    {
-                        "id": "${response.id}",
-                        "type": "${response.type}",
-                        "output": ${formatOutputAsJson(response.output)}
-                    }
-                """.trimIndent())
-            }
-            append("]")
-        }
-    }
+//    /**
+//     * 處理原始回應並執行工具
+//     * 為了向後兼容保留此方法，但內部使用新的處理流程
+//     */
+//    @OptIn(InternalSerializationApi::class)
+//    suspend fun handleToolExecution(response: String): List<ToolResponse<*>> {
+//        try {
+//            val processingResult = processLLMResponse(response)
+//            return processingResult.toolResponses
+//        } catch (e: Exception) {
+//            Log.e("ToolRegistry", e.toString())
+//            throw e
+//        }
+//    }
 
-    /**
-     * 將輸出格式化為JSON字符串
-     */
-    private fun formatOutputAsJson(output: Any?): String {
-        return when (output) {
-            null -> "null"
-            is Number -> output.toString()
-            is Boolean -> output.toString()
-            is String -> "\"${output.replace("\"", "\\\"")}\""
-            else -> "\"${output.toString().replace("\"", "\\\"")}\""
-        }
-    }
+//    /**
+//     * 將工具回應格式化為用於發送回LLM的JSON字符串
+//     */
+//    fun formatToolResponsesToJson(toolResponses: List<ToolResponse<*>>): String {
+//        return buildString {
+//            append("[")
+//            toolResponses.forEachIndexed { index, response ->
+//                if (index > 0) append(",")
+//                append("""
+//                    {
+//                        "id": "${response.id}",
+//                        "type": "${response.type}",
+//                        "output": ${formatOutputAsJson(response.output)}
+//                    }
+//                """.trimIndent())
+//            }
+//            append("]")
+//        }
+//    }
+
+//    /**
+//     * 將輸出格式化為JSON字符串
+//     */
+//    private fun formatOutputAsJson(output: Any?): String {
+//        return when (output) {
+//            null -> "null"
+//            is Number -> output.toString()
+//            is Boolean -> output.toString()
+//            is String -> "\"${output.replace("\"", "\\\"")}\""
+//            else -> "\"${output.toString().replace("\"", "\\\"")}\""
+//        }
+//    }
 }

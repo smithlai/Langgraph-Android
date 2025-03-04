@@ -76,6 +76,18 @@ class CalculatorTool : BaseTool<CalculatorInput, Int>() {
         val result = input.param1 + input.param2
         return result
     }
+    override fun getFollowUpMetadata(response: Int): ToolFollowUpMetadata {
+        val customPrompt = """
+The tool returned: "$response". 
+Based on this information, continue answering the request.
+"""
+
+        return ToolFollowUpMetadata(
+            requiresFollowUp = true,
+            shouldTerminateFlow = false,
+            customFollowUpPrompt = customPrompt // 現在使用非空字串
+        )
+    }
 }
 
 ```
@@ -90,11 +102,22 @@ toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
 val response = llm.query("what is 2+3") //[calculator_add(para1=2, param2=3)]
 val processingResult = toolRegistry.processLLMResponse(response)
+
 if (processingResult.toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
-    val toolResponse = processingResult.toolResponses.first()
-    .......
-    ......
+    
+    // opt1. tool response (Json)
+    // val toolResponseJson = processingResult.getToolResponseJson()
+    // opt2. tool response (value only)
+    // val toolResponse = processingResult.toolResponses.first()
+    // opt3.使用ProcessingResult中的buildFollowUpPrompt方法來構建適當的後續提示詞
+    val followUpPrompt = processingResult.buildFollowUpPrompt()
+
+    llm.query(followUpPrompt)// 讓llm繼續
 }
+
+
+
+
 ```
 
 ### Example 2:
@@ -136,6 +159,13 @@ class UIBridgeTool : BaseTool<UIBridgeInput, Unit>() {
         Log.d("UIBridgeTool","Executing command: ${input.command}")
         screenControlCallback?.invoke(input.command)
     }
+    override fun getFollowUpMetadata(response: Unit): ToolFollowUpMetadata {
+        return ToolFollowUpMetadata(
+            requiresFollowUp = false,
+            shouldTerminateFlow = true,
+            customFollowUpPrompt = ""
+        )
+    }
 }
 ```
 
@@ -175,6 +205,16 @@ class RagSearchTool(chunksDB: ChunksDB, sentenceEncoder: SentenceEmbeddingProvid
         }
         return@withContext retrieveDuration.value
     }
+    override fun getFollowUpMetadata(response: String): ToolFollowUpMetadata {
+        val customPrompt = "I found this information in the database:\n\n```\n$response\n```\n\n" +
+                "Based on this information, please answer the original question."
+
+        return ToolFollowUpMetadata(
+            requiresFollowUp = true,
+            shouldTerminateFlow = false,
+            customFollowUpPrompt = customPrompt
+        )
+    }
 }
 ```
 
@@ -202,6 +242,30 @@ uiBridgeTool.setNavigateCallback { cmd ->
 toolRegistry.register(uiBridgeTool)
 toolRegistry.register(ragTool)
 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
+
+....
+.....
+
+if (processingResult.toolResponses.isNotEmpty()) {
+    if (processingResult.requiresFollowUp) {//需要LLM繼續
+        // 1.使用buildFollowUpPrompt方法獲取適當的後續提示詞
+        val followUpPrompt = processingResult.buildFollowUpPrompt()
+        Log.e("toolResponses", "Following up with: $followUpPrompt")
+
+        // 2.遞歸調用處理後續提示詞
+        sendUserQuery(followUpPrompt)
+        return@launch
+    } else {
+        // 工具被調用但不需要後續處理（例如UI導航）
+        Log.e("toolResponses", "Tool executed, no follow-up needed")
+        ......
+        ......
+    }
+} else {
+    // 無工具調用，正常完成響應
+    .....
+    ......
+}
 ```
 
 #### UI
@@ -224,7 +288,9 @@ LaunchedEffect(Unit) {
     }
 }
 ```
-output
+
+
+
 
 ## Customized LLM Adaptor : 
 

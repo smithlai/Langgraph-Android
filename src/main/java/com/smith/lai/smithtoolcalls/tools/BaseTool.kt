@@ -17,6 +17,15 @@ import kotlin.reflect.full.memberProperties
 abstract class BaseTool<TInput, TOutput> {
     abstract suspend fun invoke(input: TInput): TOutput
 
+    open fun getFollowUpMetadata(response: TOutput): ToolFollowUpMetadata {
+        // 預設行為：需要後續處理
+        return ToolFollowUpMetadata(
+            requiresFollowUp = true,
+            shouldTerminateFlow = false,
+            customFollowUpPrompt = ""
+        )
+    }
+
     fun getParameterType(): KClass<*>? {
         val parameterType = this::class.supertypes
             .firstOrNull()
