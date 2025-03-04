@@ -295,7 +295,7 @@ Here is a list of functions in JSON format that you can invoke.
             Log.d("${testName.methodName}", "Tool Response JSON ($tag): ${toolResponseJson}")
 
             // 5. 添加助手的工具調用消息
-            smolLM.addAssistantMessage(assistantResponse)
+//            smolLM.addAssistantMessage(assistantResponse)
 
             // 6. 將工具回應發送給助手
 //            smolLM.addToolResults(toolResponseJson)

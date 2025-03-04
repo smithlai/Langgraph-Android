@@ -206,23 +206,23 @@ toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
 #### UI
 ```kotlin
-    LaunchedEffect(Unit) {
-        viewModel.navigationEvent.collect { command ->
-            when(command){
-                "chat_setting" -> {
-                    // This is processed in viewModel
-                    //viewModel.showMoreOptionsPopup()
-                }
-                "rag_setting" -> {
-                    onRAGChatClick()
-                }
-                else -> {
-                    Log.e("viewModel.navigationEvent.collect", "invalid command: ${command}")
-                }
+LaunchedEffect(Unit) {
+    viewModel.navigationEvent.collect { command ->
+        when(command){
+            "chat_setting" -> {
+                // This is processed in viewModel
+                //viewModel.showMoreOptionsPopup()
             }
-
+            "rag_setting" -> {
+                onRAGChatClick()
+            }
+            else -> {
+                Log.e("viewModel.navigationEvent.collect", "invalid command: ${command}")
+            }
         }
+
     }
+}
 ```
 output
 
