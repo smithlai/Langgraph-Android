@@ -67,6 +67,7 @@ dependencies {
     implementation("org.jetbrains.kotlin.plugin.serialization:org.jetbrains.kotlin.plugin.serialization.gradle.plugin:2.1.10")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.github.classgraph:classgraph:4.8.179")
+    implementation(project(":smollm"))
     testImplementation(project(":smollm"))
     androidTestImplementation(project(":smollm"))
 

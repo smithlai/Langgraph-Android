@@ -148,7 +148,7 @@ class ToolRegistry {
         try {
             // 將LLM回應轉換為結構化格式
             val structuredResponse = convertToStructured(llmResponse)
-            println(structuredResponse.toolCalls.size)
+            println("structuredResponse:" + structuredResponse.toolCalls.size)
             // 如果不包含工具調用，創建一個直接回應
             if (!structuredResponse.hasToolCalls()) {
                 return ProcessingResult(

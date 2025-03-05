@@ -8,29 +8,79 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class WeatherInput(
-    val location: String,
-    val unit: String = "celsius"
+    val city: String,
+    val metric: String = "celsius"
+)
+
+@Serializable
+data class WeatherOutput(
+    val temperature: Int,
+    val condition: String,
+    val humidity: Int,
+    val city: String
 )
 
 @ToolAnnotation(
     name = "get_weather",
-    description = "Get the current weather in a given location",
-    returnDescription = "The current weather conditions and temperature"
+    description = "Get weather info for a city",
+    returnDescription = "Returns current weather conditions including temperature, humidity, and general conditions"
 )
-class WeatherTool : BaseTool<WeatherInput, String>() {
-    override suspend fun invoke(input: WeatherInput): String {
-        return "Current weather in ${input.location} is 25°${input.unit.first().uppercase()}, Partly Cloudy"
+class WeatherTool : BaseTool<WeatherInput, WeatherOutput>() {
+    override suspend fun invoke(input: WeatherInput): WeatherOutput {
+        // This is a mock implementation
+        val cityLower = input.city.lowercase()
+
+        // Generate mock data based on city name
+        val mockData = when {
+            cityLower.contains("san francisco") -> WeatherOutput(
+                temperature = 16,
+                condition = "Partly cloudy with fog",
+                humidity = 75,
+                city = "San Francisco"
+            )
+            cityLower.contains("new york") -> WeatherOutput(
+                temperature = 24,
+                condition = "Sunny",
+                humidity = 60,
+                city = "New York"
+            )
+            cityLower.contains("seattle") -> WeatherOutput(
+                temperature = 14,
+                condition = "Rainy",
+                humidity = 85,
+                city = "Seattle"
+            )
+            cityLower.contains("tokyo") -> WeatherOutput(
+                temperature = 22,
+                condition = "Clear",
+                humidity = 65,
+                city = "Tokyo"
+            )
+            else -> WeatherOutput(
+                temperature = 20,
+                condition = "Clear",
+                humidity = 70,
+                city = input.city
+            )
+        }
+
+        return mockData
     }
-    override fun getFollowUpMetadata(response: String): ToolFollowUpMetadata {
+
+    override fun getFollowUpMetadata(response: WeatherOutput): ToolFollowUpMetadata {
         val customPrompt = """
-The tool returned: "$response". 
-Based on this information, continue answering the request.
+The weather tool returned information for ${response.city}:
+- Temperature: ${response.temperature}°${if (response.temperature > 25) "C (quite warm)" else "C"} 
+- Condition: ${response.condition}
+- Humidity: ${response.humidity}%
+
+Based on this weather information, please continue answering the user's question.
 """
 
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
             shouldTerminateFlow = false,
-            customFollowUpPrompt = customPrompt // 現在使用非空字串
+            customFollowUpPrompt = customPrompt
         )
     }
 }
