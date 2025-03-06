@@ -152,10 +152,7 @@ class LangGraph<S>(
             state = currentNode.invoke(state)
             val nodeDuration = System.currentTimeMillis() - nodeStartTime
 
-            Log.d(
-                logTag,
-                "步驟 $stepCount: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms"
-            )
+            Log.d(logTag, "步驟 $stepCount: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
 
             // 檢查完成條件
             if (isCompleted(state) || currentNodeName == endNodeName) {
@@ -168,10 +165,7 @@ class LangGraph<S>(
 
             // 防止無限循環
             if (nextNodeName == currentNodeName && stepCount > 5) {
-                Log.e(
-                    logTag,
-                    "檢測到潛在的無限循環: '$currentNodeName' -> '$currentNodeName'，終止執行"
-                )
+                Log.e(logTag, "檢測到潛在的無限循環: '$currentNodeName' -> '$currentNodeName'，終止執行")
                 break
             }
 

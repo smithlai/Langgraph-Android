@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.langgraph
 
 import com.smith.lai.smithtoolcalls.ToolRegistry
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes
 import io.shubham0204.smollm.SmolLM
 
 /**
@@ -126,12 +127,8 @@ object StateGraphFactory {
      * Creates a default pass-through node for the given state type
      */
     private fun <S : GraphState> createPassThroughNode(): Node<S> {
-        return object : Node<S> {
-            override suspend fun invoke(state: S): S {
-                // Simple pass-through node
-                return state
-            }
-        }
+        // 使用通用節點工具創建通過節點
+        return GenericNodes.createPassThroughNode<S>()
     }
 }
 

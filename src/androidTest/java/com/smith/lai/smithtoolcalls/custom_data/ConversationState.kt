@@ -58,8 +58,16 @@ data class ConversationState(
 
     fun executionDuration(): Long = System.currentTimeMillis() - startTime
 
+    // 添加消息 - 使用 role 和 content
     fun addMessage(role: MessageRole, content: String): ConversationState {
-        messages.add(Message(role, content))
+        val message = Message(role, content)
+        messages.add(message)
+        return this
+    }
+
+    // 添加消息 - 使用 Message 對象
+    fun addMessage(message: Message): ConversationState {
+        messages.add(message)
         return this
     }
 
@@ -67,4 +75,3 @@ data class ConversationState(
         return messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content
     }
 }
-

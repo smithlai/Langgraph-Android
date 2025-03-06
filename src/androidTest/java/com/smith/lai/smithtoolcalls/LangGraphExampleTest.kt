@@ -4,8 +4,11 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.smith.lai.smithtoolcalls.custom_data.ConversationState
-import com.smith.lai.smithtoolcalls.custom_data.LangGraphNodeFuncitons
+import com.smith.lai.smithtoolcalls.custom_data.LangGraphNodes
+import com.smith.lai.smithtoolcalls.custom_data.MessageRole
 import com.smith.lai.smithtoolcalls.langgraph.*
+import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes
 import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
 import com.smith.lai.smithtoolcalls.tools.llm_adapter.Llama3_2_3B_LLMToolAdapter
@@ -72,39 +75,38 @@ class LangGraphExampleTest {
 
         runBlocking {
             try {
-                // Load model and setup tools
+                // 加載模型和設置工具
                 loadModel()
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
-                // Create graph using factory with reusable node creators
+                // 使用工廠創建對話圖 - 使用預定義節點方法引用
                 val graph = StateGraphFactory.createConversationalAgent<ConversationState>(
                     model = smolLM,
                     toolRegistry = toolRegistry,
-                    createLLMNode = LangGraphNodeFuncitons::createLLMNode,
-                    createToolNode = LangGraphNodeFuncitons::createToolNode,
-                    createStartNode = { LangGraphNodeFuncitons.createStartNode() },
-                    createEndNode = { msg -> LangGraphNodeFuncitons.createEndNode(msg) }
+                    createLLMNode = LangGraphNodes::createLLMNode,
+                    createToolNode = LangGraphNodes::createToolNode,
+                    createStartNode = { LangGraphNodes.createStartNode() },
+                    createEndNode = { msg -> LangGraphNodes.createEndNode(msg) }
                 )
 
-                // Run with a test query
-                val query = "What's 125 + 437 and what's the weather in San Francisco?"
-                Log.d(DEBUG_TAG, "Running graph with query: $query")
+                // 創建初始狀態 - 更接近Python風格
+                val initialState = ConversationState().apply {
+                    query = "What's 125 + 437 and what's the weather in San Francisco?"
+                    // 直接使用狀態, 不再傳遞字符串查詢
+                }
 
-                val initialState = ConversationState(query = query)
+                // 執行圖 - 直接傳入狀態
                 val result = graph.run(initialState)
 
-                // Log and verify results
+                // 記錄和驗證結果
                 Log.d(DEBUG_TAG, "Execution completed in ${result.executionDuration()}ms")
                 Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-
-                // 获取最终响应
-                val finalResponse = result.finalResponse
-                Log.d(DEBUG_TAG, "Final response length: ${finalResponse.length}")
+                Log.d(DEBUG_TAG, "Final response length: ${result.finalResponse.length}")
 
                 Assert.assertTrue("Execution should complete", result.completed)
                 Assert.assertNull("Should have no errors", result.error)
 
-                // 检查工具使用
+                // 檢查工具使用
                 var usedCalculator = false
                 var usedWeather = false
 
@@ -139,27 +141,27 @@ class LangGraphExampleTest {
 
         runBlocking {
             try {
-                // Load model and setup tools
+                // 加載模型和設置工具
                 loadModel()
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
-                // Create graph with custom configuration
+                // 使用自定義配置創建圖
                 val graph = StateGraphFactory.createCustomGraph<ConversationState> {
-                    // Add nodes using predefined node creators
-                    addNode("llm", LangGraphNodeFuncitons.createLLMNode(smolLM, toolRegistry))
-                    addNode("tool", LangGraphNodeFuncitons.createToolNode(toolRegistry))
-                    addNode("formatter", LangGraphNodeFuncitons.createFormatterNode())
-                    addNode("start", LangGraphNodeFuncitons.createStartNode())
-                    addNode("end", LangGraphNodeFuncitons.createEndNode("Custom agent completed"))
+                    // 添加節點
+                    addNode("llm", LangGraphNodes.createLLMNode(smolLM, toolRegistry))
+                    addNode("tool", LangGraphNodes.createToolNode(toolRegistry))
+                    addNode("formatter", LangGraphNodes.createFormatterNode())
+                    addNode("start", LangGraphNodes.createStartNode())
+                    addNode("end", LangGraphNodes.createEndNode("Custom agent completed"))
 
-                    // Set entry point and completion checker
+                    // 設置入口點和完成檢查器
                     setEntryPoint("start")
                     setCompletionChecker { it.completed }
 
-                    // Configure flow
+                    // 配置流程
                     addEdge("start", "llm")
 
-                    // Conditional edges
+                    // 條件邊
                     addConditionalEdge(
                         "llm",
                         mapOf(
@@ -173,16 +175,19 @@ class LangGraphExampleTest {
                     addEdge("formatter", "end")
                 }
 
-                // Run with a test query
-                val query = "What is 42 + 17?"
-                val initialState = ConversationState(query = query)
+                // 創建初始狀態 - 更接近Python風格
+                val initialState = ConversationState().apply {
+                    query = "What is 42 + 17?"
+                }
+
+                // 執行圖 - 直接傳入狀態
                 val result = graph.run(initialState)
 
-                // Verify results
+                // 驗證結果
                 val finalResponse = result.finalResponse
                 Assert.assertTrue("Response should start with ANSWER:", finalResponse.startsWith("ANSWER:"))
 
-                // 检查计算器结果
+                // 檢查計算器結果
                 var hasCalculatorResult = false
                 for (response in result.toolResponses) {
                     val output = response.output.toString()
@@ -209,51 +214,139 @@ class LangGraphExampleTest {
 
         runBlocking {
             try {
-                // Load model and setup tools
+                // 加載模型和設置工具
                 loadModel()
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
-                // Create graph builder directly (most Python-like approach)
+                // 使用更接近Python風格的節點定義
+                val chatbotNode = object : Node<ConversationState> {
+                    override suspend fun invoke(state: ConversationState): ConversationState {
+                        try {
+                            // 檢查已有錯誤
+                            if (state.error != null) {
+                                Log.e(DEBUG_TAG, "Chatbot node: previous error detected: ${state.error}")
+                                return state.withCompleted(true)
+                            }
+
+                            // 獲取查詢並添加用戶消息
+                            val query = state.query
+                            if (query.isNotEmpty() &&
+                                (state.messages.isEmpty() ||
+                                        state.messages.last().role != MessageRole.USER ||
+                                        state.messages.last().content != query)) {
+                                state.addMessage(MessageRole.USER, query)
+                            }
+
+                            // 處理模型響應
+                            val systemPrompt = toolRegistry.createSystemPrompt()
+                            smolLM.addSystemPrompt(systemPrompt)
+
+                            // 添加消息歷史
+                            for (message in state.messages) {
+                                when (message.role) {
+                                    MessageRole.USER -> smolLM.addUserMessage(message.content)
+                                    MessageRole.ASSISTANT -> smolLM.addAssistantMessage(message.content)
+                                    MessageRole.TOOL -> smolLM.addUserMessage(message.content)
+                                    else -> {} // 忽略其他類型
+                                }
+                            }
+
+                            // 生成響應
+                            val responseBuilder = StringBuilder()
+                            smolLM.getResponse().collect { responseBuilder.append(it) }
+                            val response = responseBuilder.toString()
+
+                            // 添加助手消息
+                            state.addMessage(MessageRole.ASSISTANT, response)
+
+                            // 處理工具調用
+                            val processingResult = toolRegistry.processLLMResponse(response)
+                            val hasToolCalls = processingResult.toolResponses.isNotEmpty()
+
+                            // 更新狀態
+                            state.processingResult = processingResult
+                            state.hasToolCalls = hasToolCalls
+
+                            return state
+                        } catch (e: Exception) {
+                            Log.e(DEBUG_TAG, "Chatbot node error", e)
+                            return state.withError("Chatbot error: ${e.message}").withCompleted(true)
+                        }
+                    }
+                }
+
+                val toolsNode = object : Node<ConversationState> {
+                    override suspend fun invoke(state: ConversationState): ConversationState {
+                        Log.d(DEBUG_TAG, "Tools node: processing state")
+                        val processingResult = state.processingResult
+                        if (processingResult == null || !state.hasToolCalls) {
+                            return state.withError("No tool calls to process").withCompleted(true)
+                        }
+
+                        // 添加工具響應
+                        val toolResponses = processingResult.toolResponses
+                        state.toolResponses.addAll(toolResponses)
+
+                        // 添加工具消息
+                        for (response in toolResponses) {
+                            val toolContent = "Tool '${response.id}' output: ${response.output}"
+                            state.addMessage(MessageRole.TOOL, toolContent)
+                        }
+
+                        // 重置工具調用狀態
+                        state.hasToolCalls = false
+
+                        return state
+                    }
+                }
+
+                // 構建圖 - 最接近Python風格的方法
                 val graph = LangGraph<ConversationState>().apply {
-                    // Add nodes using predefined node creators
-                    addNode("chatbot", LangGraphNodeFuncitons.createLLMNode(smolLM, toolRegistry))
-                    addNode("tools", LangGraphNodeFuncitons.createToolNode(toolRegistry))
-                    addNode("start", LangGraphNodeFuncitons.createStartNode())
-                    addNode("end", LangGraphNodeFuncitons.createEndNode("Python-style agent completed"))
+                    // 添加節點
+                    addNode("chatbot", chatbotNode)
+                    addNode("tools", toolsNode)
+                    addNode("start", GenericNodes.createStartNode<ConversationState>())
+                    addNode("end", GenericNodes.createEndNode<ConversationState>("Python-style graph completed"))
 
-                    // Set entry point and completion checker
+                    // 設置入口點和完成檢查器
                     setEntryPoint("start")
-                    setCompletionChecker { it.completed }
+                    setCompletionChecker { !it.hasToolCalls }
 
-                    // Define edges
+                    // 定義邊
                     addEdge("start", "chatbot")
 
-                    // Use conditional edges
+                    // 定義條件邊
                     addConditionalEdge(
                         "chatbot",
                         mapOf(
-                            ConversationState.HasToolCalls to "tools"
+                            { state: ConversationState -> state.hasToolCalls } to "tools"
                         ),
                         defaultTarget = "end"
                     )
                     addEdge("tools", "chatbot")
 
-                    // Compile
+                    // 編譯
                     compile()
                 }
 
-                // Run query
-                val query = "What's the weather in Seattle? Also, what is 45 + 27?"
-                Log.d(DEBUG_TAG, "Running pure Python-style graph with query: $query")
+                // 創建初始狀態 - 更接近Python風格
+                val initialState = ConversationState().apply {
+                    // 可以使用預先定義的消息歷史
+                    // addMessage(MessageRole.USER, "Hello!")
+                    // addMessage(MessageRole.ASSISTANT, "Hi there! How can I help you?")
 
-                val initialState = ConversationState(query = query)
+                    // 設置當前的查詢
+                    query = "What's the weather in Seattle? Also, what is 45 + 27?"
+                }
+
+                // 執行圖 - 直接傳入狀態
                 val result = graph.run(initialState)
 
-                // Verify results
+                // 驗證結果
                 Assert.assertTrue("Execution should complete", result.completed)
                 Assert.assertNull("Should have no errors", result.error)
 
-                // 检查工具使用
+                // 檢查工具使用
                 var usedCalculator = false
                 var usedWeather = false
 
@@ -269,6 +362,12 @@ class LangGraphExampleTest {
                     }
                 }
 
+                // 檢查所有消息
+                Log.d(DEBUG_TAG, "Messages history:")
+                for (msg in result.messages) {
+                    Log.d(DEBUG_TAG, "${msg.role}: ${msg.content.take(50)}...")
+                }
+
                 Assert.assertTrue("Should have used weather tool", usedWeather)
                 Assert.assertTrue("Should have used calculator", usedCalculator)
 
@@ -280,39 +379,56 @@ class LangGraphExampleTest {
     }
 
     @Test
-    fun test_004_SimplifiedAgent() {
+    fun test_004_StateWithHistory() {
         toolRegistry.register(CalculatorTool::class)
 
         runBlocking {
             try {
-                // Load model and setup tools
+                // 加載模型和設置工具
                 loadModel()
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
-                // 最簡化的圖創建 - 只定義必要的節點，使用簡化的LLM節點
+                // 創建簡單圖
                 val graph = StateGraphFactory.createSimpleAgent<ConversationState>(
                     model = smolLM,
                     toolRegistry = toolRegistry,
-                    createLLMNode = LangGraphNodeFuncitons::createSimpleLLMNode
-                    // 使用預設的開始和結束節點
+                    createLLMNode = LangGraphNodes::createSimpleLLMNode
                 )
 
-                // Run with a test query
-                val query = "What is 42 + 17? Please calculate it."
-                val initialState = ConversationState(query = query)
+                // 創建帶有消息歷史的初始狀態 - 完全符合Python風格
+                val initialState = ConversationState().apply {
+                    // 添加預先存在的對話歷史
+                    addMessage(MessageRole.USER, "Hello, my name is David.")
+                    addMessage(MessageRole.ASSISTANT, "Hi David! How can I help you today?")
+
+                    // 設置當前查詢
+                    query = "What is 15 + 27?"
+                }
+
+                // 執行圖
                 val result = graph.run(initialState)
 
-                // Verify results
+                // 驗證結果
                 Assert.assertTrue("Execution should complete", result.completed)
                 Assert.assertNull("Should have no errors", result.error)
-                Assert.assertFalse("Final response should not be empty", result.finalResponse.isEmpty())
 
-                // Simple agent doesn't execute tools, but should mention the calculation
-                val containsResult = result.finalResponse.contains("59") ||
-                        result.finalResponse.contains("42 + 17") ||
-                        result.finalResponse.contains("forty-two plus seventeen")
+                // 檢查消息歷史
+                Assert.assertEquals("Should have 4 messages", 4, result.messages.size)
+                Assert.assertEquals("First message should be from user", MessageRole.USER, result.messages[0].role)
+                Assert.assertTrue("First message should contain name", result.messages[0].content.contains("David"))
 
-                Assert.assertTrue("Response should mention the calculation or result", containsResult)
+                // 檢查回應是否包含計算結果
+                val finalResponse = result.finalResponse
+                val containsResult = finalResponse.contains("42") ||
+                        finalResponse.contains("15 + 27") ||
+                        finalResponse.contains("addition")
+
+                Assert.assertTrue("Response should mention the calculation result", containsResult)
+
+                // 記錄最終消息
+                for (msg in result.messages) {
+                    Log.d(DEBUG_TAG, "${msg.role}: ${msg.content.take(50)}...")
+                }
 
             } catch (e: Exception) {
                 Log.e(DEBUG_TAG, "Test failed", e)

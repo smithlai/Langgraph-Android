@@ -1,31 +1,46 @@
 package com.smith.lai.smithtoolcalls.langgraph.node
 
-import com.smith.lai.smithtoolcalls.langgraph.state.BaseState
+import com.smith.lai.smithtoolcalls.langgraph.GraphState
 
 /**
- * Base Node interface following LangGraph pattern
- */
-interface BaseNode<S, O> {
-    suspend fun invoke(state: S): O
-}
-
-
-/**
- * 節點接口 - 處理特定類型的狀態
+ * 节点接口 - 定义图中节点的基本行为
+ * 节点处理特定类型的状态并返回更新后的状态
  */
 interface Node<S> {
+    /**
+     * 执行节点逻辑并返回更新后的状态
+     * @param state 输入状态
+     * @return 更新后的状态
+     */
     suspend fun invoke(state: S): S
 }
 
 /**
- * 标准节点，使用BaseState作为状态
+ * 标准节点常量
  */
-interface StateNode : Node<BaseState>
+object NodeNames {
+    /**
+     * 标准入口节点名称
+     */
+    const val START = "start"
 
-/**
- * Enum for standard node types
- */
-object NodeTypes {
-    const val START = "__start__"
-    const val END = "__end__"
+    /**
+     * 标准出口节点名称
+     */
+    const val END = "end"
+
+    /**
+     * 标准LLM节点名称
+     */
+    const val LLM = "llm"
+
+    /**
+     * 标准工具节点名称
+     */
+    const val TOOL = "tool"
+
+    /**
+     * 标准记忆节点名称
+     */
+    const val MEMORY = "memory"
 }
