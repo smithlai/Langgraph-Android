@@ -2,54 +2,49 @@ package com.smith.lai.smithtoolcalls.langgraph
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
-import com.smith.lai.smithtoolcalls.langgraph.node.NodeTypes
-import com.smith.lai.smithtoolcalls.langgraph.node.StateGraph
-import kotlin.reflect.KClass
 
 /**
- * StateGraphBuilder combines building and execution in one class
- * Directly matches Python LangGraph's API style
+ * LangGraph - 通用圖執行引擎
  */
-class StateGraphBuilder {
-    private val nodes = mutableMapOf<String, Node<StateGraph>>()
-    private val edges = mutableMapOf<String, MutableMap<(StateGraph) -> Boolean, String>>()
-    private val defaultEdges = mutableMapOf<String, String>()
-    private var startNodeName = NodeTypes.START
-    private var endNodeName = NodeTypes.END
+class LangGraph<S>(
+    private val nodes: MutableMap<String, Node<S>> = mutableMapOf(),
+    private val edges: MutableMap<String, MutableMap<(S) -> Boolean, String>> = mutableMapOf(),
+    private val defaultEdges: MutableMap<String, String> = mutableMapOf(),
+    private var startNodeName: String = "start",
+    private var endNodeName: String = "end",
+    private var isCompleted: (S) -> Boolean = { false },
+    private var maxSteps: Int = 50
+) {
+    private val logTag = "LangGraph"
     private var compiled = false
 
     /**
-     * Add a node to the graph
+     * 添加節點
      */
-    fun addNode(name: String, node: Node<StateGraph>): StateGraphBuilder {
+    fun addNode(name: String, node: Node<S>): LangGraph<S> {
         nodes[name] = node
         return this
     }
 
     /**
-     * Add a direct edge between nodes
+     * 添加直接邊
      */
-    fun addEdge(source: String, target: String): StateGraphBuilder {
+    fun addEdge(source: String, target: String): LangGraph<S> {
         defaultEdges[source] = target
         return this
     }
 
-
     /**
-     * Add conditional edges based on state
+     * 添加條件邊
      */
     fun addConditionalEdges(
         source: String,
-        conditionMap: Map<(StateGraph) -> Boolean, String>,
+        conditionMap: Map<(S) -> Boolean, String>,
         defaultTarget: String? = null
-    ): StateGraphBuilder {
-        // Create or get the conditions map for the source node
+    ): LangGraph<S> {
         val nodeEdges = edges.getOrPut(source) { mutableMapOf() }
-
-        // Add all the condition-to-destination mappings
         nodeEdges.putAll(conditionMap)
 
-        // Set default edge if provided
         if (defaultTarget != null) {
             defaultEdges[source] = defaultTarget
         }
@@ -57,204 +52,165 @@ class StateGraphBuilder {
         return this
     }
 
-
-
     /**
-     * Add conditional edge - simplified for Python-like API
+     * 添加條件邊（別名）
      */
     fun addConditionalEdge(
         source: String,
-        conditionMap: Map<(StateGraph) -> Boolean, String>,
+        conditionMap: Map<(S) -> Boolean, String>,
         defaultTarget: String? = null
-    ): StateGraphBuilder {
+    ): LangGraph<S> {
         return addConditionalEdges(source, conditionMap, defaultTarget)
     }
 
-
     /**
-     * Set channel for node (Python-style - for compatibility)
+     * 設置入口點
      */
-    fun setNodeChannel(nodeName: String, channel: String = "default"): StateGraphBuilder {
-        Log.d("StateGraphBuilder", "setNodeChannel is a no-op in Kotlin implementation")
-        return this
-    }
-
-    /**
-     * Set the entry point of the graph
-     */
-    fun setEntryPoint(nodeName: String): StateGraphBuilder {
+    fun setEntryPoint(nodeName: String): LangGraph<S> {
         startNodeName = nodeName
         return this
     }
 
     /**
-     * Ensure required nodes exist
+     * 設置完成條件檢查器
      */
-    private fun ensureRequiredNodes() {
-        if (!nodes.containsKey(startNodeName) || !nodes.containsKey(endNodeName)) {
-            Log.w("StateGraphBuilder", "START or END nodes missing, trying to add default nodes")
-
-            if (!nodes.containsKey(startNodeName)) {
-                try {
-                    val startNodeClass = Class.forName("com.smith.lai.smithtoolcalls.langgraph.node.StartNode").kotlin
-                    val startNodeInstance = startNodeClass.constructors.first().call() as Node<StateGraph>
-                    addNode(startNodeName, startNodeInstance)
-                } catch (e: Exception) {
-                    Log.e("StateGraphBuilder", "Failed to create default START node: ${e.message}")
-                    throw IllegalStateException("Start node '$startNodeName' not defined")
-                }
-            }
-
-            if (!nodes.containsKey(endNodeName)) {
-                try {
-                    val endNodeClass = Class.forName("com.smith.lai.smithtoolcalls.langgraph.node.EndNode").kotlin
-                    val endNodeInstance = endNodeClass.constructors.first().call() as Node<StateGraph>
-                    addNode(endNodeName, endNodeInstance)
-                } catch (e: Exception) {
-                    Log.e("StateGraphBuilder", "Failed to create default END node: ${e.message}")
-                    throw IllegalStateException("End node '$endNodeName' not defined")
-                }
-            }
-        }
+    fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {
+        isCompleted = checker
+        return this
     }
 
     /**
-     * Compile the graph (Python-style)
-     * In this implementation, compile() marks the graph as executable
-     * but doesn't create a new object
+     * 設置最大步驟數
      */
-    fun compile(): StateGraphBuilder {
-        ensureRequiredNodes()
+    fun setMaxSteps(steps: Int): LangGraph<S> {
+        maxSteps = steps
+        return this
+    }
+
+    /**
+     * 編譯圖
+     */
+    fun compile(): LangGraph<S> {
+        // 檢查必要節點
+        if (!nodes.containsKey(startNodeName)) {
+            throw IllegalStateException("缺少入口節點: '$startNodeName'")
+        }
+
+        if (!nodes.containsKey(endNodeName)) {
+            Log.w(logTag, "未定義結束節點 '$endNodeName'，這可能導致圖執行無法正確終止")
+        }
+
         compiled = true
         return this
     }
 
     /**
-     * Execute the graph with a specific query
+     * 執行圖（呼叫別名）
      */
-    suspend fun invoke(query: String): StateGraph {
-        return run(query)
+    suspend fun invoke(initialState: S): S {
+        return run(initialState)
     }
 
     /**
-     * Execute the graph with a specific query
+     * 執行圖
      */
-    suspend fun run(query: String): StateGraph {
+    suspend fun run(initialState: S): S {
         if (!compiled) {
-            Log.w("StateGraphBuilder", "Graph not compiled, compiling now")
+            Log.w(logTag, "圖未編譯，現在自動編譯")
             compile()
         }
 
-        var state = StateGraph(query = query)
+        var state = initialState
         var currentNodeName = startNodeName
+        var stepCount = 0
 
-        Log.d("StateGraphBuilder", "Starting graph execution with query: $query")
+        val startTime = System.currentTimeMillis()
 
-        while (!state.completed) {
-            // Increment step counter
-            state = state.incrementStep()
+        Log.d(logTag, "開始執行圖，入口: '$startNodeName'")
 
-            // Check for maximum steps
-            if (state.maxStepsReached()) {
-                Log.e("StateGraphBuilder", "Maximum steps (${state.maxSteps}) reached - terminating execution")
-                state = state.copy(
-                    error = "Maximum execution steps (${state.maxSteps}) exceeded",
-                    completed = true
-                )
-                currentNodeName = endNodeName
+        while (true) {
+            // 遞增步驟計數
+            stepCount++
+
+            // 檢查最大步驟數
+            if (stepCount >= maxSteps) {
+                Log.e(logTag, "達到最大步驟數 ($maxSteps)，終止執行")
+                break
             }
 
-            // Get current node or terminate if not found
+            // 獲取當前節點
             val currentNode = nodes[currentNodeName]
             if (currentNode == null) {
-                Log.e("StateGraphBuilder", "Node '$currentNodeName' not found, ending execution")
-                state = state.copy(
-                    error = "Node '$currentNodeName' not found",
-                    completed = true
-                )
+                Log.e(logTag, "找不到節點 '$currentNodeName'，終止執行")
                 break
             }
 
-            Log.d("StateGraphBuilder", "Step ${state.stepCount}: Executing node '$currentNodeName'")
+            Log.d(logTag, "步驟 $stepCount: 執行節點 '$currentNodeName'")
 
-            // Process current node
-            val startTime = System.currentTimeMillis()
+            // 執行節點
+            val nodeStartTime = System.currentTimeMillis()
             state = currentNode.invoke(state)
-            val duration = System.currentTimeMillis() - startTime
+            val nodeDuration = System.currentTimeMillis() - nodeStartTime
 
-            Log.d("StateGraphBuilder", "Step ${state.stepCount}: Node '$currentNodeName' executed in ${duration}ms. " +
-                    "State completed=${state.completed}, error=${state.error}")
+            Log.d(
+                logTag,
+                "步驟 $stepCount: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms"
+            )
 
-            if (state.completed || currentNodeName == endNodeName) {
-                // Ensure we process the end node if we're in an error state
-                if (state.error != null && currentNodeName != endNodeName) {
-                    Log.e("StateGraphBuilder", "Error detected, jumping to end node")
-                    currentNodeName = endNodeName
-                    continue
-                }
-
-                Log.d("StateGraphBuilder", "State marked as completed, ending graph execution")
+            // 檢查完成條件
+            if (isCompleted(state) || currentNodeName == endNodeName) {
+                Log.d(logTag, "狀態已完成或達到終止節點，結束執行")
                 break
             }
 
-            // Error handling - jump to end node if error detected
-            if (state.error != null) {
-                Log.e("StateGraphBuilder", "Error detected: ${state.error}, jumping to end node")
-                currentNodeName = endNodeName
-                continue
-            }
-
-            // Find next node
+            // 查找下一個節點
             val nextNodeName = findNextNode(currentNodeName, state)
 
-            // Prevent infinite loops by detecting cycles
-            if (nextNodeName == currentNodeName && state.stepCount > 5) {
-                Log.e("StateGraphBuilder", "Potential infinite loop detected, jumping to end node")
-                state = state.copy(
-                    error = "Potential infinite loop detected",
-                    completed = false
+            // 防止無限循環
+            if (nextNodeName == currentNodeName && stepCount > 5) {
+                Log.e(
+                    logTag,
+                    "檢測到潛在的無限循環: '$currentNodeName' -> '$currentNodeName'，終止執行"
                 )
-                currentNodeName = endNodeName
-                continue
+                break
             }
 
-            Log.d("StateGraphBuilder", "Step ${state.stepCount}: Transitioning from '$currentNodeName' to '$nextNodeName'")
+            Log.d(logTag, "步驟 $stepCount: 從 '$currentNodeName' 轉換到 '$nextNodeName'")
             currentNodeName = nextNodeName
         }
 
-        val duration = state.executionDuration()
-        Log.d("StateGraphBuilder", "Graph execution complete after ${state.stepCount} steps in ${duration}ms. " +
-                "Final response length: ${state.finalResponse.length}")
+        val totalDuration = System.currentTimeMillis() - startTime
+        Log.d(logTag, "圖執行完成，共 $stepCount 步，總耗時 ${totalDuration}ms")
 
         return state
     }
 
     /**
-     * Find the next node to transition to
+     * 查找下一個要轉換到的節點
      */
-    private fun findNextNode(currentNodeName: String, state: StateGraph): String {
-        // Get conditional edges for this node
+    private fun findNextNode(currentNodeName: String, state: S): String {
+        // 取得這個節點的條件邊
         val conditionalEdges = edges[currentNodeName]
 
         if (conditionalEdges != null) {
-            // Try each condition in order
+            // 按順序嘗試每個條件
             for ((condition, targetNode) in conditionalEdges) {
                 if (condition(state)) {
-                    Log.d("StateGraphBuilder", "Edge condition met: $currentNodeName -> $targetNode")
+                    Log.d(logTag, "滿足邊條件: $currentNodeName -> $targetNode")
                     return targetNode
                 }
             }
         }
 
-        // If no conditions match, use default edge if exists
+        // 如果沒有條件匹配，使用預設邊（如果存在）
         val defaultTarget = defaultEdges[currentNodeName]
         if (defaultTarget != null) {
-            Log.d("StateGraphBuilder", "Using default edge: $currentNodeName -> $defaultTarget")
+            Log.d(logTag, "使用預設邊: $currentNodeName -> $defaultTarget")
             return defaultTarget
         }
 
-        // Otherwise stay at current node
-        Log.d("StateGraphBuilder", "No matching edge conditions, staying at current node: $currentNodeName")
+        // 否則留在當前節點
+        Log.d(logTag, "沒有匹配的邊條件，保持在當前節點: $currentNodeName")
         return currentNodeName
     }
 }
