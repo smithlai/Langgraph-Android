@@ -6,7 +6,6 @@ import android.util.Log
 /**
  * Start node for initializing graph execution
  */
-@GraphNode("start")
 class StartNode : Node<StateGraph> {
     override suspend fun invoke(state: StateGraph): StateGraph {
         Log.d("StartNode", "Initializing graph execution with query: ${state.query}")

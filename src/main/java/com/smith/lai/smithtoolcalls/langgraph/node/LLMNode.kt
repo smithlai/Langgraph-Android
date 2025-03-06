@@ -8,7 +8,6 @@ import io.shubham0204.smollm.SmolLM
 /**
  * LLM node that handles generating responses from the LLM
  */
-@GraphNode("llm")
 class LLMNode(
     private val model: SmolLM,
     private val toolRegistry: ToolRegistry

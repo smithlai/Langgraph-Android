@@ -15,20 +15,14 @@ interface Node<S : BaseState> : BaseNode<S, S>
 /**
  * Decorator for defining a LangGraph node
  */
-@Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class GraphNode(val name: String)
+//@Target(AnnotationTarget.CLASS)
+//@Retention(AnnotationRetention.RUNTIME)
+//annotation class GraphNode(val name: String)
 
 /**
  * Enum for standard node types
  */
-enum class NodeTypes(val id: String) {
-    START("start"),
-    END("end"),
-    LLM("llm"),
-    TOOL("tool"),
-    MEMORY("memory"),
-    FORMATTER("formatter");
-
-    override fun toString(): String = id
+object NodeTypes {
+    val START = "__start__"
+    val END = "__end__"
 }

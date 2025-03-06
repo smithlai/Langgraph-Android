@@ -8,7 +8,6 @@ import com.smith.lai.smithtoolcalls.langgraph.MessageRole
 /**
  * Tool execution node that handles executing tools
  */
-@GraphNode("tool")
 class ToolNode(private val toolRegistry: ToolRegistry) : Node<StateGraph> {
     override suspend fun invoke(state: StateGraph): StateGraph {
         Log.d("ToolNode", "Processing tool node with state: completionStatus=${state.completed}")

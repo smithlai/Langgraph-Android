@@ -5,7 +5,6 @@ import android.util.Log
 /**
  * Memory node that stores and retrieves conversation history
  */
-@GraphNode("memory")
 class MemoryNode : Node<StateGraph> {
     override suspend fun invoke(state: StateGraph): StateGraph {
         Log.d("MemoryNode", "Processing state with ${state.messages.size} messages")

@@ -20,7 +20,7 @@ object StateGraphFactory {
     fun createConversationalAgent(
         model: SmolLM,
         toolRegistry: ToolRegistry
-    ): LangGraph {
+    ): StateGraphBuilder {
         // Create nodes
         val startNode = StartNode()
         val memoryNode = MemoryNode()
@@ -32,27 +32,27 @@ object StateGraphFactory {
         val graphBuilder = StateGraphBuilder()
 
         // Add nodes
-        graphBuilder.addNode(NodeTypes.MEMORY, memoryNode)
-        graphBuilder.addNode(NodeTypes.LLM, llmNode)
-        graphBuilder.addNode(NodeTypes.TOOL, toolNode)
+        graphBuilder.addNode("memory", memoryNode)
+        graphBuilder.addNode("llm", llmNode)
+        graphBuilder.addNode("tool", toolNode)
         graphBuilder.addNode(NodeTypes.START, startNode)
         graphBuilder.addNode(NodeTypes.END, endNode)
 
         // Add edges
-        graphBuilder.addEdge(NodeTypes.START, NodeTypes.MEMORY)
-        graphBuilder.addEdge(NodeTypes.MEMORY, NodeTypes.LLM)
+        graphBuilder.addEdge(NodeTypes.START, "memory")
+        graphBuilder.addEdge("memory", "llm")
 
         // Conditional edges - Python style
-        graphBuilder.addConditionalEdge(
-            NodeTypes.LLM,
+        graphBuilder.addConditionalEdges(
+            "llm",
             mapOf(
-                StateConditions.hasToolCalls to NodeTypes.TOOL,
+                StateConditions.hasToolCalls to "tool",
                 StateConditions.isComplete to NodeTypes.END
             ),
-            default = NodeTypes.END
+            defaultTarget = NodeTypes.END
         )
 
-        graphBuilder.addEdge(NodeTypes.TOOL, NodeTypes.LLM)
+        graphBuilder.addEdge("tool", "llm")
 
         // Compile and return the graph
         return graphBuilder.compile()
@@ -64,7 +64,7 @@ object StateGraphFactory {
     fun createSimpleAgent(
         model: SmolLM,
         toolRegistry: ToolRegistry
-    ): LangGraph {
+    ): StateGraphBuilder {
         val graphBuilder = StateGraphBuilder()
 
         val startNode = StartNode()
@@ -72,10 +72,10 @@ object StateGraphFactory {
         val endNode = EndNode("Simple agent completed")
 
         graphBuilder.addNode(NodeTypes.START, startNode)
-        graphBuilder.addNode(NodeTypes.LLM, llmNode)
+        graphBuilder.addNode("llm", llmNode)
         graphBuilder.addNode(NodeTypes.END, endNode)
-        graphBuilder.addEdge(NodeTypes.START, NodeTypes.LLM)
-        graphBuilder.addEdge(NodeTypes.LLM, NodeTypes.END)
+        graphBuilder.addEdge(NodeTypes.START, "llm")
+        graphBuilder.addEdge("llm", NodeTypes.END)
 
         return graphBuilder.compile()
     }
@@ -85,7 +85,7 @@ object StateGraphFactory {
      */
     fun createCustomGraph(
         configurator: StateGraphBuilder.() -> Unit
-    ): LangGraph {
+    ): StateGraphBuilder {
         val graphBuilder = StateGraphBuilder()
 
         // Apply custom configuration

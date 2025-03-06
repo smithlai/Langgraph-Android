@@ -7,7 +7,6 @@ import com.smith.lai.smithtoolcalls.langgraph.MessageRole
 /**
  * End node that properly finalizes the graph execution
  */
-@GraphNode("end")
 class EndNode(private val completionMessage: String = "Graph execution completed") : Node<StateGraph> {
     override suspend fun invoke(state: StateGraph): StateGraph {
         val duration = state.executionDuration()
