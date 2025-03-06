@@ -41,7 +41,7 @@ object StateGraphFactory {
         graphBuilder.addNode("end", createEndNode?.invoke("Simple agent completed") ?: createPassThroughNode())
 
         // Set entry point
-        graphBuilder.setEntryPoint("start")
+//        graphBuilder.setEntryPoint("start")
 
         // Set completion checker
         graphBuilder.setCompletionChecker { state -> state.completed }

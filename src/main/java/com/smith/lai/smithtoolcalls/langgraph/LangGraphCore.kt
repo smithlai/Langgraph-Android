@@ -65,14 +65,6 @@ class LangGraph<S>(
     }
 
     /**
-     * 設置入口點
-     */
-    fun setEntryPoint(nodeName: String): LangGraph<S> {
-        startNodeName = nodeName
-        return this
-    }
-
-    /**
      * 設置完成條件檢查器
      */
     fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {

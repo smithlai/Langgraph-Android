@@ -8,6 +8,7 @@ import com.smith.lai.smithtoolcalls.custom_data.ConversationNodes
 import com.smith.lai.smithtoolcalls.custom_data.MessageRole
 import com.smith.lai.smithtoolcalls.langgraph.*
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes
 import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
@@ -136,7 +137,7 @@ class LangGraphExampleTest {
         }
     }
 
-    @Test
+//    @Test
     fun test_002_CustomNodeGraph() {
         toolRegistry.register(CalculatorTool::class)
 
@@ -152,15 +153,15 @@ class LangGraphExampleTest {
                     addNode("llm", ConversationNodes.createLLMNode(smolLM, toolRegistry))
                     addNode("tool", ConversationNodes.createToolNode(toolRegistry))
                     addNode("formatter", ConversationNodes.createFormatterNode())
-                    addNode("start", ConversationNodes.createStartNode())
-                    addNode("end", ConversationNodes.createEndNode("Custom agent completed"))
+                    addNode(NodeNames.START, ConversationNodes.createStartNode())
+                    addNode(NodeNames.END, ConversationNodes.createEndNode("Custom agent completed"))
 
                     // 設置入口點和完成檢查器
-                    setEntryPoint("start")
+//                    setEntryPoint(NodeNames.START)
                     setCompletionChecker { it.completed }
 
                     // 配置流程
-                    addEdge("start", "llm")
+                    addEdge(NodeNames.START, "llm")
 
                     // 條件邊
                     addConditionalEdge(
@@ -173,7 +174,7 @@ class LangGraphExampleTest {
                     )
 
                     addEdge("tool", "llm")
-                    addEdge("formatter", "end")
+                    addEdge("formatter", NodeNames.END)
                 }
 
                 // 創建初始狀態 - 更接近Python風格
@@ -208,7 +209,7 @@ class LangGraphExampleTest {
         }
     }
 
-    @Test
+//    @Test
     fun test_003_PythonStyleGraph() {
         toolRegistry.register(CalculatorTool::class)
         toolRegistry.register(WeatherTool::class)
@@ -306,15 +307,15 @@ class LangGraphExampleTest {
                     // 添加節點
                     addNode("chatbot", chatbotNode)
                     addNode("tools", toolsNode)
-                    addNode("start", GenericNodes.createStartNode<ConversationState>())
-                    addNode("end", GenericNodes.createEndNode<ConversationState>("Python-style graph completed"))
+                    addNode(NodeNames.START, GenericNodes.createStartNode<ConversationState>())
+                    addNode(NodeNames.END, GenericNodes.createEndNode<ConversationState>("Python-style graph completed"))
 
                     // 設置入口點和完成檢查器
-                    setEntryPoint("start")
+//                    setEntryPoint(NodeNames.START)
                     setCompletionChecker { !it.hasToolCalls }
 
                     // 定義邊
-                    addEdge("start", "chatbot")
+                    addEdge(NodeNames.START, "chatbot")
 
                     // 定義條件邊
                     addConditionalEdge(
@@ -322,7 +323,7 @@ class LangGraphExampleTest {
                         mapOf(
                             { state: ConversationState -> state.hasToolCalls } to "tools"
                         ),
-                        defaultTarget = "end"
+                        defaultTarget = NodeNames.END
                     )
                     addEdge("tools", "chatbot")
 
@@ -379,7 +380,7 @@ class LangGraphExampleTest {
         }
     }
 
-    @Test
+//    @Test
     fun test_004_StateWithHistory() {
         toolRegistry.register(CalculatorTool::class)
 

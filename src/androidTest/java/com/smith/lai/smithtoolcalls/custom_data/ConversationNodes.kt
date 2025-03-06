@@ -252,7 +252,7 @@ object ConversationNodes {
         graphBuilder.addNode("tool", createToolNode(toolRegistry))
 
         // Set entry point
-        graphBuilder.setEntryPoint(NodeNames.START)
+//        graphBuilder.setEntryPoint(NodeNames.START)
 
         // Set completion checker
         graphBuilder.setCompletionChecker { state -> state.completed }
