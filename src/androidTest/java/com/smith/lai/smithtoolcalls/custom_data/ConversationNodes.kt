@@ -2,14 +2,19 @@ package com.smith.lai.smithtoolcalls.custom_data
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.ToolRegistry
+import com.smith.lai.smithtoolcalls.langgraph.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.LangGraph
+import com.smith.lai.smithtoolcalls.langgraph.StateConditions
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes
+import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes.createPassThroughNode
 import io.shubham0204.smollm.SmolLM
 
 /**
  * 預定義的節點創建函數集合，用於創建特定於ConversationState的節點
  */
-object LangGraphNodes {
+object ConversationNodes {
     const val DEBUG_TAG = "LangGraphNodes"
 
     /**
@@ -214,5 +219,61 @@ object LangGraphNodes {
             setFinalResponse = { state, response -> state.finalResponse = response },
             logTag = DEBUG_TAG
         )
+    }
+
+    /**
+     * Creates a standard conversation agent with LLM, Tool, and memory handling
+     *
+     * @param model LLM model to use
+     * @param toolRegistry Tool registry for tool execution
+     * @param createLLMNode function to create an LLM node for state type S
+     * @param createToolNode function to create a tool node for state type S
+     * @param createMemoryNode function to create a memory node for state type S (optional)
+     */
+    fun <S : GraphState> createConversationalAgent(
+        model: SmolLM,
+        toolRegistry: ToolRegistry,
+        createLLMNode: (SmolLM, ToolRegistry) -> Node<S>,
+        createToolNode: (ToolRegistry) -> Node<S>,
+        createMemoryNode: (() -> Node<S>)? = null
+    ): LangGraph<S> {
+        // Create graph builder
+        val graphBuilder = LangGraph<S>()
+
+        // Add nodes - 使用預設值創建標準節點
+        val startNode = GenericNodes.createStartNode<S>()
+        val endNode = GenericNodes.createEndNode<S>("Conversation agent completed")
+        val memoryNode = createMemoryNode?.invoke() ?: createPassThroughNode()
+
+        graphBuilder.addNode(NodeNames.START, startNode)
+        graphBuilder.addNode(NodeNames.END, endNode)
+        graphBuilder.addNode("memory", memoryNode)
+        graphBuilder.addNode("llm", createLLMNode(model, toolRegistry))
+        graphBuilder.addNode("tool", createToolNode(toolRegistry))
+
+        // Set entry point
+        graphBuilder.setEntryPoint(NodeNames.START)
+
+        // Set completion checker
+        graphBuilder.setCompletionChecker { state -> state.completed }
+
+        // Add edges
+        graphBuilder.addEdge(NodeNames.START, "memory")
+        graphBuilder.addEdge("memory", "llm")
+
+        // Conditional edges
+        graphBuilder.addConditionalEdges(
+            "llm",
+            mapOf(
+                StateConditions.hasToolCalls<S>() to "tool",
+                StateConditions.isComplete<S>() to NodeNames.END
+            ),
+            defaultTarget = NodeNames.END
+        )
+
+        graphBuilder.addEdge("tool", "llm")
+
+        // Compile and return the graph
+        return graphBuilder.compile()
     }
 }

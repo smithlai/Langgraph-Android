@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.smith.lai.smithtoolcalls.custom_data.ConversationState
-import com.smith.lai.smithtoolcalls.custom_data.LangGraphNodes
+import com.smith.lai.smithtoolcalls.custom_data.ConversationNodes
 import com.smith.lai.smithtoolcalls.custom_data.MessageRole
 import com.smith.lai.smithtoolcalls.langgraph.*
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
@@ -79,14 +79,15 @@ class LangGraphExampleTest {
                 loadModel()
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
-                // 使用工廠創建對話圖 - 使用預定義節點方法引用
-                val graph = StateGraphFactory.createConversationalAgent<ConversationState>(
+                // 創建圖
+                val graph = ConversationNodes.createConversationalAgent<ConversationState>(
                     model = smolLM,
                     toolRegistry = toolRegistry,
-                    createLLMNode = LangGraphNodes::createLLMNode,
-                    createToolNode = LangGraphNodes::createToolNode,
-                    createStartNode = { LangGraphNodes.createStartNode() },
-                    createEndNode = { msg -> LangGraphNodes.createEndNode(msg) }
+                    createLLMNode = ConversationNodes::createLLMNode,
+                    createToolNode = ConversationNodes::createToolNode
+                    //memory node
+                    //createStartNode = { LangGraphNodes.createStartNode() },
+                    //createEndNode = { msg -> LangGraphNodes.createEndNode(msg) }
                 )
 
                 // 創建初始狀態 - 更接近Python風格
@@ -148,11 +149,11 @@ class LangGraphExampleTest {
                 // 使用自定義配置創建圖
                 val graph = StateGraphFactory.createCustomGraph<ConversationState> {
                     // 添加節點
-                    addNode("llm", LangGraphNodes.createLLMNode(smolLM, toolRegistry))
-                    addNode("tool", LangGraphNodes.createToolNode(toolRegistry))
-                    addNode("formatter", LangGraphNodes.createFormatterNode())
-                    addNode("start", LangGraphNodes.createStartNode())
-                    addNode("end", LangGraphNodes.createEndNode("Custom agent completed"))
+                    addNode("llm", ConversationNodes.createLLMNode(smolLM, toolRegistry))
+                    addNode("tool", ConversationNodes.createToolNode(toolRegistry))
+                    addNode("formatter", ConversationNodes.createFormatterNode())
+                    addNode("start", ConversationNodes.createStartNode())
+                    addNode("end", ConversationNodes.createEndNode("Custom agent completed"))
 
                     // 設置入口點和完成檢查器
                     setEntryPoint("start")
@@ -392,7 +393,7 @@ class LangGraphExampleTest {
                 val graph = StateGraphFactory.createSimpleAgent<ConversationState>(
                     model = smolLM,
                     toolRegistry = toolRegistry,
-                    createLLMNode = LangGraphNodes::createSimpleLLMNode
+                    createLLMNode = ConversationNodes::createSimpleLLMNode
                 )
 
                 // 創建帶有消息歷史的初始狀態 - 完全符合Python風格

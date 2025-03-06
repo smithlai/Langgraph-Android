@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.langgraph
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
 
 /**
  * LangGraph - 通用圖執行引擎
@@ -10,8 +11,8 @@ class LangGraph<S>(
     private val nodes: MutableMap<String, Node<S>> = mutableMapOf(),
     private val edges: MutableMap<String, MutableMap<(S) -> Boolean, String>> = mutableMapOf(),
     private val defaultEdges: MutableMap<String, String> = mutableMapOf(),
-    private var startNodeName: String = "start",
-    private var endNodeName: String = "end",
+    private var startNodeName: String = NodeNames.START,
+    private var endNodeName: String = NodeNames.END,
     private var isCompleted: (S) -> Boolean = { false },
     private var maxSteps: Int = 50
 ) {

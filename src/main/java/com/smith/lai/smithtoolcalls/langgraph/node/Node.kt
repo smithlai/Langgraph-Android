@@ -19,28 +19,6 @@ interface Node<S> {
  * 标准节点常量
  */
 object NodeNames {
-    /**
-     * 标准入口节点名称
-     */
-    const val START = "start"
-
-    /**
-     * 标准出口节点名称
-     */
-    const val END = "end"
-
-    /**
-     * 标准LLM节点名称
-     */
-    const val LLM = "llm"
-
-    /**
-     * 标准工具节点名称
-     */
-    const val TOOL = "tool"
-
-    /**
-     * 标准记忆节点名称
-     */
-    const val MEMORY = "memory"
+    const val START = "__start__"
+    const val END = "__end__"
 }

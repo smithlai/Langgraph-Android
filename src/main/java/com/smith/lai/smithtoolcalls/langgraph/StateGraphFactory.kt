@@ -22,61 +22,6 @@ interface GraphState {
  * Factory for creating pre-configured graphs with specific state types
  */
 object StateGraphFactory {
-    /**
-     * Creates a standard conversation agent with LLM, Tool, and memory handling
-     *
-     * @param model LLM model to use
-     * @param toolRegistry Tool registry for tool execution
-     * @param createLLMNode function to create an LLM node for state type S
-     * @param createToolNode function to create a tool node for state type S
-     * @param createMemoryNode function to create a memory node for state type S (optional)
-     * @param createStartNode function to create a start node for state type S (optional)
-     * @param createEndNode function to create an end node for state type S (optional)
-     */
-    fun <S : GraphState> createConversationalAgent(
-        model: SmolLM,
-        toolRegistry: ToolRegistry,
-        createLLMNode: (SmolLM, ToolRegistry) -> Node<S>,
-        createToolNode: (ToolRegistry) -> Node<S>,
-        createMemoryNode: (() -> Node<S>)? = null,
-        createStartNode: (() -> Node<S>)? = null,
-        createEndNode: ((String) -> Node<S>)? = null
-    ): LangGraph<S> {
-        // Create graph builder
-        val graphBuilder = LangGraph<S>()
-
-        // Add nodes
-        graphBuilder.addNode("memory", createMemoryNode?.invoke() ?: createPassThroughNode())
-        graphBuilder.addNode("llm", createLLMNode(model, toolRegistry))
-        graphBuilder.addNode("tool", createToolNode(toolRegistry))
-        graphBuilder.addNode("start", createStartNode?.invoke() ?: createPassThroughNode())
-        graphBuilder.addNode("end", createEndNode?.invoke("Conversation agent completed") ?: createPassThroughNode())
-
-        // Set entry point
-        graphBuilder.setEntryPoint("start")
-
-        // Set completion checker
-        graphBuilder.setCompletionChecker { state -> state.completed }
-
-        // Add edges
-        graphBuilder.addEdge("start", "memory")
-        graphBuilder.addEdge("memory", "llm")
-
-        // Conditional edges
-        graphBuilder.addConditionalEdges(
-            "llm",
-            mapOf(
-                StateConditions.hasToolCalls<S>() to "tool",
-                StateConditions.isComplete<S>() to "end"
-            ),
-            defaultTarget = "end"
-        )
-
-        graphBuilder.addEdge("tool", "llm")
-
-        // Compile and return the graph
-        return graphBuilder.compile()
-    }
 
     /**
      * Creates a simple LLM-only agent without tool calling
