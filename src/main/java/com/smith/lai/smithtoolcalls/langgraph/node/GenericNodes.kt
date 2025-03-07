@@ -1,8 +1,8 @@
 package com.smith.lai.smithtoolcalls.langgraph.nodes
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.langgraph.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
+import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 
 /**
  * 通用節點實現 - 提供泛型節點創建函數

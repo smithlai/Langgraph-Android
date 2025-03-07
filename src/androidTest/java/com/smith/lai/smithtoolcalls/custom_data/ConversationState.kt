@@ -1,6 +1,6 @@
 package com.smith.lai.smithtoolcalls.custom_data
 
-import com.smith.lai.smithtoolcalls.langgraph.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.tools.ProcessingResult
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import java.util.UUID

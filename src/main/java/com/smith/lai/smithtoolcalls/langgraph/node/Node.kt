@@ -1,7 +1,5 @@
 package com.smith.lai.smithtoolcalls.langgraph.node
 
-import com.smith.lai.smithtoolcalls.langgraph.GraphState
-
 /**
  * 节点接口 - 定义图中节点的基本行为
  * 节点处理特定类型的状态并返回更新后的状态

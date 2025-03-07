@@ -2,9 +2,9 @@ package com.smith.lai.smithtoolcalls.custom_data
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.ToolRegistry
-import com.smith.lai.smithtoolcalls.langgraph.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.LangGraph
-import com.smith.lai.smithtoolcalls.langgraph.StateConditions
+import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.nodes.GenericNodes
@@ -23,6 +23,16 @@ object ConversationNodes {
      */
     fun createLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<ConversationState> {
         return object : Node<ConversationState> {
+
+            // 最大跟踪消息數
+            private val maxTrackedMessages = 5
+
+            // 使用 LinkedHashSet 實現有序且唯一的 ID 集合
+            // LinkedHashSet 維護插入順序，允許按照添加順序進行迭代
+            private val processedMessageIds = LinkedHashSet<String>(maxTrackedMessages)
+
+
+
             override suspend fun invoke(state: ConversationState): ConversationState {
                 try {
                     // 檢查已有錯誤
@@ -37,44 +47,81 @@ object ConversationNodes {
                         return state.withError("No messages to process").withCompleted(true)
                     }
 
-                    // 添加系統提示
-                    val systemPrompt = toolRegistry.createSystemPrompt()
-                    model.addSystemPrompt(systemPrompt)
+                    // 防止上下文溢出-僅處理最近消息
+                    val messagesToProcess = state.messages.takeLast(maxTrackedMessages)
 
-                    // 防止上下文溢出-僅添加最近消息
-                    val maxMessagesToAdd = if (state.messages.size > 30) 15 else state.messages.size
-                    val startIdx = state.messages.size - maxMessagesToAdd
+                    // 檢查是否需要添加系統提示
+                    if (processedMessageIds.isEmpty()) {
+                        val systemPrompt = toolRegistry.createSystemPrompt()
+                        Log.d(DEBUG_TAG, "LLM node: Adding SystemPrompt(${systemPrompt.length})")
+                        model.addSystemPrompt(systemPrompt)
+                    }
 
-                    // 添加對話消息
-                    for (i in startIdx until state.messages.size) {
-                        val message = state.messages[i]
+                    // 添加新的消息
+                    var newMessagesAdded = 0
+                    for (message in messagesToProcess) {
+                        // 檢查消息是否已處理過
+                        if (processedMessageIds.contains(message.id)) {
+                            continue
+                        }
+
+                        // 添加新消息到模型
                         when (message.role) {
-                            MessageRole.USER -> model.addUserMessage(message.content)
-                            MessageRole.ASSISTANT -> model.addAssistantMessage(message.content)
-                            MessageRole.TOOL -> model.addUserMessage(message.content)
+                            MessageRole.USER -> {
+                                model.addUserMessage(message.content)
+                                Log.v(DEBUG_TAG, "Added USER: ${message.content.take(50)}...")
+                            }
+                            MessageRole.ASSISTANT -> {
+                                model.addAssistantMessage(message.content)
+                                Log.v(DEBUG_TAG, "Added ASSISTANT: ${message.content.take(50)}...")
+                            }
+                            MessageRole.TOOL -> {
+                                model.addUserMessage(message.content)
+                                Log.v(DEBUG_TAG, "Added TOOL as USER: ${message.content.take(50)}...")
+                            }
                             else -> {} // 忽略系統消息
                         }
+
+                        // 添加消息 ID 到處理集合
+                        processedMessageIds.add(message.id)
+
+                        // 如果超過最大跟踪數，移除最舊的
+                        if (processedMessageIds.size > maxTrackedMessages) {
+                            processedMessageIds.iterator().next()?.let {
+                                processedMessageIds.remove(it)
+                            }
+                        }
+
+                        newMessagesAdded++
                     }
 
-                    // 生成回應
-                    Log.d(DEBUG_TAG, "LLM node: generating response...")
-                    val response = StringBuilder()
-                    model.getResponse().collect {
-                        response.append(it)
+                    Log.d(DEBUG_TAG, "LLM node: Added $newMessagesAdded new messages to context")
+
+                    // 只有當有新消息時才生成回應
+                    if (newMessagesAdded > 0) {
+                        // 生成回應
+                        Log.d(DEBUG_TAG, "LLM node: generating response...")
+                        val response = StringBuilder()
+                        model.getResponse().collect {
+                            response.append(it)
+                        }
+
+                        val assistantResponse = response.toString()
+                        Log.d(DEBUG_TAG, "LLM node: response generated: (${assistantResponse.length} chars)\n$assistantResponse")
+
+                        // 添加助手消息
+                        state.addMessage(MessageRole.ASSISTANT, assistantResponse)
+
+                        // 處理工具調用
+                        val processingResult = toolRegistry.processLLMResponse(assistantResponse)
+                        state.processingResult = processingResult
+                        state.hasToolCalls = processingResult.toolResponses.isNotEmpty()
+                    } else {
+                        Log.d(DEBUG_TAG, "LLM node: no new messages, skipping response generation")
+                        state.hasToolCalls = false
                     }
 
-                    val assistantResponse = response.toString()
-                    Log.d(DEBUG_TAG, "LLM node: response generated (${assistantResponse.length} chars)")
-
-                    // 添加助手消息
-                    state.addMessage(MessageRole.ASSISTANT, assistantResponse)
-
-                    // 處理工具調用
-                    val processingResult = toolRegistry.processLLMResponse(assistantResponse)
-                    state.processingResult = processingResult
-                    state.hasToolCalls = processingResult.toolResponses.isNotEmpty()
-
-                    return state.withCompleted(processingResult.toolResponses.isEmpty())
+                    return state.withCompleted(!state.hasToolCalls)
                 } catch (e: Exception) {
                     Log.e(DEBUG_TAG, "LLM node: error processing state", e)
                     return state.withError("LLM node error: ${e.message}").withCompleted(true)
@@ -82,7 +129,6 @@ object ConversationNodes {
             }
         }
     }
-
     /**
      * 創建工具節點，負責執行工具調用
      */
@@ -104,7 +150,7 @@ object ConversationNodes {
                     return state.withCompleted(true)
                 }
 
-                Log.d(DEBUG_TAG, "Tool node: processing ${toolResponses.size} tool responses")
+                Log.d(DEBUG_TAG, "Tool node: processing ${toolResponses.size} tool responses\n${toolResponses.map { it.output.toString() }.joinToString { it }}")
 
                 // 添加工具響應
                 state.toolResponses.addAll(toolResponses)
@@ -269,7 +315,7 @@ object ConversationNodes {
 //        graphBuilder.setEntryPoint(NodeNames.START)
 
         // Set completion checker
-        graphBuilder.setCompletionChecker { state -> state.completed }
+//        graphBuilder.setCompletionChecker { state -> state.completed }
 
         // Add edges
         graphBuilder.addEdge(NodeNames.START, "memory")

@@ -3,17 +3,18 @@ package com.smith.lai.smithtoolcalls.langgraph
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
+import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 
 /**
  * LangGraph - 通用圖執行引擎
  */
-class LangGraph<S>(
+class LangGraph<S: GraphState>(
     private val nodes: MutableMap<String, Node<S>> = mutableMapOf(),
     private val edges: MutableMap<String, MutableMap<(S) -> Boolean, String>> = mutableMapOf(),
     private val defaultEdges: MutableMap<String, String> = mutableMapOf(),
     private var startNodeName: String = NodeNames.START,
     private var endNodeName: String = NodeNames.END,
-    private var isCompleted: (S) -> Boolean = { false },
+    private var completeChecker: (S) -> Boolean = { state -> state.completed },
     private var maxSteps: Int = 50
 ) {
     private val logTag = "LangGraph"
@@ -65,10 +66,37 @@ class LangGraph<S>(
     }
 
     /**
-     * 設置完成條件檢查器
+     * 設置完成條件檢查器，用於決定圖執行何時應該結束
+     *
+     * 完成檢查器是一個接收當前狀態並返回布爾值的函數。
+     * 當檢查器返回 true 時，圖執行將結束並返回當前狀態。
+     *
+     * 如果不調用此方法，將使用預設檢查器 (檢查 state.completed 屬性)。
+     *
+     * 檢查器撰寫指南：
+     * 1. 簡單條件：直接檢查狀態屬性
+     *    例如：{ state -> state.completed }
+     *
+     * 2. 複合條件：結合多個條件
+     *    例如：{ state -> state.completed || state.error != null }
+     *
+     * 3. 使用狀態條件工具類：
+     *    例如：StateConditions.any(
+     *            StateConditions.isComplete(),
+     *            StateConditions.hasError()
+     *          )
+     *
+     * 4. 數量限制：
+     *    例如：{ state -> state.messages.size >= 10 }
+     *
+     * 5. 自定義業務邏輯：
+     *    例如：{ state -> state.finalScore >= 0.8 || state.attempts >= 3 }
+     *
+     * @param checker 決定圖執行何時結束的函數，接收當前狀態並返回布爾值
+     * @return 返回圖對象以支持鏈式調用
      */
     fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {
-        isCompleted = checker
+        completeChecker = checker
         return this
     }
 
@@ -146,7 +174,7 @@ class LangGraph<S>(
                 break
             }
 
-            Log.d(logTag, "步驟 $stepCount: 執行節點 '$currentNodeName'")
+            Log.d(logTag, "===== 步驟 $stepCount: 執行節點 '$currentNodeName' =====")
 
             // 執行節點
             val nodeStartTime = System.currentTimeMillis()
@@ -156,7 +184,7 @@ class LangGraph<S>(
             Log.d(logTag, "步驟 $stepCount: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
 
             // 檢查完成條件
-            if (isCompleted(state) || currentNodeName == endNodeName) {
+            if (completeChecker(state) || currentNodeName == endNodeName) {
                 Log.d(logTag, "狀態已完成或達到終止節點，結束執行")
                 break
             }
