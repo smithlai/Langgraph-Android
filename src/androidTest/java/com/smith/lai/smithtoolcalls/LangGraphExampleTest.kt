@@ -86,15 +86,11 @@ class LangGraphExampleTest {
                     toolRegistry = toolRegistry,
                     createLLMNode = ConversationNodes::createLLMNode,
                     createToolNode = ConversationNodes::createToolNode
-                    //memory node
-                    //createStartNode = { LangGraphNodes.createStartNode() },
-                    //createEndNode = { msg -> LangGraphNodes.createEndNode(msg) }
                 )
 
-                // 創建初始狀態 - 更接近Python風格
+                // 創建初始狀態 - 使用消息而非查詢
                 val initialState = ConversationState().apply {
-                    query = "What's 125 + 437 and what's the weather in San Francisco?"
-                    // 直接使用狀態, 不再傳遞字符串查詢
+                    addUserInput("What's 125 + 437 and what's the weather in San Francisco?")
                 }
 
                 // 執行圖 - 直接傳入狀態
@@ -177,9 +173,9 @@ class LangGraphExampleTest {
                     addEdge("formatter", NodeNames.END)
                 }
 
-                // 創建初始狀態 - 更接近Python風格
+                // 創建初始狀態 - 使用消息而非查詢
                 val initialState = ConversationState().apply {
-                    query = "What is 42 + 17?"
+                    addMessage(MessageRole.USER, "What is 42 + 17?")
                 }
 
                 // 執行圖 - 直接傳入狀態
@@ -230,13 +226,10 @@ class LangGraphExampleTest {
                                 return state.withCompleted(true)
                             }
 
-                            // 獲取查詢並添加用戶消息
-                            val query = state.query
-                            if (query.isNotEmpty() &&
-                                (state.messages.isEmpty() ||
-                                        state.messages.last().role != MessageRole.USER ||
-                                        state.messages.last().content != query)) {
-                                state.addMessage(MessageRole.USER, query)
+                            // 檢查消息是否存在
+                            if (state.messages.isEmpty()) {
+                                Log.e(DEBUG_TAG, "Chatbot node: no messages to process")
+                                return state.withError("No messages to process").withCompleted(true)
                             }
 
                             // 處理模型響應
@@ -331,14 +324,14 @@ class LangGraphExampleTest {
                     compile()
                 }
 
-                // 創建初始狀態 - 更接近Python風格
+                // 創建初始狀態 - 使用消息
                 val initialState = ConversationState().apply {
                     // 可以使用預先定義的消息歷史
                     // addMessage(MessageRole.USER, "Hello!")
                     // addMessage(MessageRole.ASSISTANT, "Hi there! How can I help you?")
 
-                    // 設置當前的查詢
-                    query = "What's the weather in Seattle? Also, what is 45 + 27?"
+                    // 添加用戶消息
+                    addMessage(MessageRole.USER, "What's the weather in Seattle? Also, what is 45 + 27?")
                 }
 
                 // 執行圖 - 直接傳入狀態
@@ -397,14 +390,14 @@ class LangGraphExampleTest {
                     createLLMNode = ConversationNodes::createSimpleLLMNode
                 )
 
-                // 創建帶有消息歷史的初始狀態 - 完全符合Python風格
+                // 創建帶有消息歷史的初始狀態
                 val initialState = ConversationState().apply {
                     // 添加預先存在的對話歷史
                     addMessage(MessageRole.USER, "Hello, my name is David.")
                     addMessage(MessageRole.ASSISTANT, "Hi David! How can I help you today?")
 
-                    // 設置當前查詢
-                    query = "What is 15 + 27?"
+                    // 添加新的用戶消息
+                    addMessage(MessageRole.USER, "What is 15 + 27?")
                 }
 
                 // 執行圖

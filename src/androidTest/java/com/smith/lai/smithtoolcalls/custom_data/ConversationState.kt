@@ -26,7 +26,6 @@ data class ConversationState(
     val startTime: Long = System.currentTimeMillis(),
 
     // 業務數據
-    var query: String = "",
     val messages: MutableList<Message> = mutableListOf(),
     val toolResponses: MutableList<ToolResponse<*>> = mutableListOf(),
     var processingResult: ProcessingResult? = null,
@@ -71,7 +70,17 @@ data class ConversationState(
         return this
     }
 
+    // 添加用户输入直接作为消息
+    fun addUserInput(content: String): ConversationState {
+        addMessage(MessageRole.USER, content)
+        return this
+    }
+
     fun getLastAssistantMessage(): String? {
         return messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content
+    }
+
+    fun getLastUserMessage(): String? {
+        return messages.lastOrNull { it.role == MessageRole.USER }?.content
     }
 }

@@ -31,17 +31,10 @@ object ConversationNodes {
                         return state.withCompleted(true)
                     }
 
-                    // 獲取查詢
-                    val query = state.query
-
-                    // 如果有新查詢且不是最後一條消息，添加用戶消息
-                    if (query.isNotEmpty() &&
-                        (state.messages.isEmpty() ||
-                                state.messages.last().role != MessageRole.USER ||
-                                state.messages.last().content != query)) {
-
-                        Log.d(DEBUG_TAG, "LLM node: adding user query to messages: $query")
-                        state.addMessage(MessageRole.USER, query)
+                    // 檢查消息是否為空
+                    if (state.messages.isEmpty()) {
+                        Log.e(DEBUG_TAG, "LLM node: no messages to process")
+                        return state.withError("No messages to process").withCompleted(true)
                     }
 
                     // 添加系統提示
@@ -158,12 +151,10 @@ object ConversationNodes {
         return object : Node<ConversationState> {
             override suspend fun invoke(state: ConversationState): ConversationState {
                 try {
-                    // 如果query不是最後一條消息，才添加
-                    if (state.query.isNotEmpty() &&
-                        (state.messages.isEmpty() ||
-                                state.messages.last().role != MessageRole.USER ||
-                                state.messages.last().content != state.query)) {
-                        state.addMessage(MessageRole.USER, state.query)
+                    // 檢查消息是否為空
+                    if (state.messages.isEmpty()) {
+                        Log.e(DEBUG_TAG, "Simple LLM node: no messages to process")
+                        return state.withError("No messages to process").withCompleted(true)
                     }
 
                     // 添加系統提示
@@ -194,6 +185,29 @@ object ConversationNodes {
                 } catch (e: Exception) {
                     return state.withError("LLM error: ${e.message}").withCompleted(true)
                 }
+            }
+        }
+    }
+
+    /**
+     * 創建消息處理節點，用於驗證消息狀態
+     */
+    fun createMessageProcessorNode(): Node<ConversationState> {
+        return object : Node<ConversationState> {
+            override suspend fun invoke(state: ConversationState): ConversationState {
+                if (state.messages.isEmpty()) {
+                    Log.e(DEBUG_TAG, "Message processor: no messages available")
+                    return state.withError("No messages available").withCompleted(true)
+                }
+
+                // 確保最後一條消息是來自用戶的
+                val lastMessage = state.messages.last()
+                if (lastMessage.role != MessageRole.USER) {
+                    Log.w(DEBUG_TAG, "Message processor: last message is not from user")
+                    // 可根據需求決定是否為錯誤
+                }
+
+                return state
             }
         }
     }

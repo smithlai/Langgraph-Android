@@ -13,7 +13,7 @@ interface GraphState {
     val error: String?
     val stepCount: Int
 
-    fun withCompleted(isCompleted: Boolean): GraphState
+    fun withCompleted(isCompleted: Boolean = true): GraphState
     fun withError(errorMessage: String): GraphState
     fun incrementStep(): GraphState
 }

@@ -73,6 +73,14 @@ class LangGraph<S>(
     }
 
     /**
+     * 設置入口點
+     */
+    //fun setEntryPoint(nodeName: String): LangGraph<S> {
+    //    startNodeName = nodeName
+    //    return this
+    //}
+
+    /**
      * 設置最大步驟數
      */
     fun setMaxSteps(steps: Int): LangGraph<S> {
