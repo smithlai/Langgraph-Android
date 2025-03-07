@@ -28,9 +28,12 @@ data class ConversationState(
     // 業務數據
     val messages: MutableList<Message> = mutableListOf(),
     val toolResponses: MutableList<ToolResponse<*>> = mutableListOf(),
-    var processingResult: ProcessingResult? = null,
-    var finalResponse: String = "",
-    var hasToolCalls: Boolean = false
+//    var processingResult: ProcessingResult? = null,
+//    var finalResponse: String = "",
+    var hasToolCalls: Boolean = false,
+
+    // 添加原始 LLM 回應字段，用於工具節點處理
+    var rawLLMResponse: String? = null
 ) : GraphState {
 
     companion object {

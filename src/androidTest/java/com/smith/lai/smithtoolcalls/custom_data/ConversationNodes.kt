@@ -18,20 +18,16 @@ object ConversationNodes {
     const val DEBUG_TAG = "LangGraphNodes"
 
     /**
-     * 創建LLM節點，負責生成回應並處理工具調用
-     * 支持帶有歷史的初始狀態
+     * 創建 LLM 節點，負責生成回應
+     * 使用 ToolRegistry 的現有方法檢測工具調用
      */
     fun createLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<ConversationState> {
         return object : Node<ConversationState> {
-
             // 最大跟踪消息數
             private val maxTrackedMessages = 5
 
             // 使用 LinkedHashSet 實現有序且唯一的 ID 集合
-            // LinkedHashSet 維護插入順序，允許按照添加順序進行迭代
             private val processedMessageIds = LinkedHashSet<String>(maxTrackedMessages)
-
-
 
             override suspend fun invoke(state: ConversationState): ConversationState {
                 try {
@@ -69,15 +65,15 @@ object ConversationNodes {
                         when (message.role) {
                             MessageRole.USER -> {
                                 model.addUserMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added USER: ${message.content.take(50)}...")
+                                Log.v(DEBUG_TAG, "Added USER: ${message.content}...")
                             }
                             MessageRole.ASSISTANT -> {
                                 model.addAssistantMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added ASSISTANT: ${message.content.take(50)}...")
+                                Log.v(DEBUG_TAG, "Added ASSISTANT: ${message.content}...")
                             }
                             MessageRole.TOOL -> {
                                 model.addUserMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added TOOL as USER: ${message.content.take(50)}...")
+                                Log.v(DEBUG_TAG, "Added TOOL as USER: ${message.content}...")
                             }
                             else -> {} // 忽略系統消息
                         }
@@ -109,13 +105,19 @@ object ConversationNodes {
                         val assistantResponse = response.toString()
                         Log.d(DEBUG_TAG, "LLM node: response generated: (${assistantResponse.length} chars)\n$assistantResponse")
 
-                        // 添加助手消息
+                        // 添加助手消息, 並標記為已處理
                         state.addMessage(MessageRole.ASSISTANT, assistantResponse)
+                        processedMessageIds.add(state.messages.last().id)
 
-                        // 處理工具調用
-                        val processingResult = toolRegistry.processLLMResponse(assistantResponse)
-                        state.processingResult = processingResult
-                        state.hasToolCalls = processingResult.toolResponses.isNotEmpty()
+                        // 儲存原始回應供 Tool 節點使用
+                        state.rawLLMResponse = assistantResponse
+
+                        // 使用 ToolRegistry 的方法檢測工具調用
+                        val structuredResponse = toolRegistry.convertToStructured(assistantResponse)
+                        state.hasToolCalls = structuredResponse.hasToolCalls()
+
+                        Log.d(DEBUG_TAG, "LLM node: detected tool calls = ${state.hasToolCalls}")
+
                     } else {
                         Log.d(DEBUG_TAG, "LLM node: no new messages, skipping response generation")
                         state.hasToolCalls = false
@@ -129,65 +131,64 @@ object ConversationNodes {
             }
         }
     }
+
     /**
-     * 創建工具節點，負責執行工具調用
+     * 創建工具節點，負責解析工具調用意圖並執行工具
      */
     fun createToolNode(toolRegistry: ToolRegistry): Node<ConversationState> {
         return object : Node<ConversationState> {
             override suspend fun invoke(state: ConversationState): ConversationState {
                 Log.d(DEBUG_TAG, "Tool node: processing with hasToolCalls=${state.hasToolCalls}")
 
-                val processingResult = state.processingResult
-                if (processingResult == null || !state.hasToolCalls) {
-                    Log.e(DEBUG_TAG, "Tool node: no processing result available or no tool calls")
+                // 檢查必要條件
+                if (!state.hasToolCalls || state.rawLLMResponse.isNullOrEmpty()) {
+                    Log.e(DEBUG_TAG, "Tool node: no tool calls or raw response available")
                     return state.withError("No tool calls to process").withCompleted(true)
                 }
 
-                // 處理工具響應
-                val toolResponses = processingResult.toolResponses
-                if (toolResponses.isEmpty()) {
-                    Log.d(DEBUG_TAG, "Tool node: no tool responses to process")
-                    return state.withCompleted(true)
+                try {
+                    // 使用 ToolRegistry 處理 LLM 回應，包含解析和執行工具
+                    val processingResult = toolRegistry.processLLMResponse(state.rawLLMResponse!!)
+
+                    // 檢查解析結果
+                    if (processingResult.toolResponses.isEmpty()) {
+                        Log.w(DEBUG_TAG, "Tool node: no valid tool responses found in result")
+                        state.hasToolCalls = false
+                        return state.withCompleted(true)
+                    }
+
+                    Log.d(DEBUG_TAG, "Tool node: processing ${processingResult.toolResponses.size} tool responses")
+                    val outputs = processingResult.toolResponses.map { "${it.id}: ${it.output}" }
+                    Log.d(DEBUG_TAG, "Tool outputs: ${outputs.joinToString("\n")}")
+
+                    // 添加工具響應到狀態
+                    state.toolResponses.addAll(processingResult.toolResponses)
+
+                    // 創建後續提示
+                    // 使用 ProcessingResult 的方法生成更智能的提示
+                    val followUpPrompt = processingResult.buildFollowUpPrompt()
+
+                    // 添加工具消息作為用戶消息
+                    state.addMessage(MessageRole.TOOL, followUpPrompt)
+
+                    // 重置工具調用標誌
+                    state.hasToolCalls = false
+
+                    // 檢查是否應終止流程
+                    if (processingResult.shouldTerminateFlow()) {
+                        Log.d(DEBUG_TAG, "Tool node: tool requested to terminate flow")
+                        return state.withCompleted(true)
+                    }
+
+                    return state
+                } catch (e: Exception) {
+                    Log.e(DEBUG_TAG, "Tool node: error processing tool calls", e)
+                    return state.withError("Error processing tool calls: ${e.message}").withCompleted(true)
                 }
-
-                Log.d(DEBUG_TAG, "Tool node: processing ${toolResponses.size} tool responses\n${toolResponses.map { it.output.toString() }.joinToString { it }}")
-
-                // 添加工具響應
-                state.toolResponses.addAll(toolResponses)
-
-                // 創建後續提示
-                val followUpPrompt = "工具執行完畢，請繼續對話"
-
-                // 添加工具消息
-                state.addMessage(MessageRole.TOOL, followUpPrompt)
-
-                // 重置工具調用標誌
-                state.hasToolCalls = false
-
-                return state
             }
         }
     }
 
-    /**
-     * 創建簡單的格式化節點，負責對最終回應進行格式化
-     */
-    fun createFormatterNode(prefix: String = "ANSWER: "): Node<ConversationState> {
-        return object : Node<ConversationState> {
-            override suspend fun invoke(state: ConversationState): ConversationState {
-                Log.d(DEBUG_TAG, "Formatting final response")
-
-                val response = state.finalResponse.ifEmpty {
-                    state.getLastAssistantMessage() ?: ""
-                }
-
-                // 格式化响应
-                state.finalResponse = "$prefix$response"
-
-                return state
-            }
-        }
-    }
 
     /**
      * 創建簡化版LLM節點，用於不需要工具調用的簡單對話
@@ -225,7 +226,6 @@ object ConversationNodes {
 
                     // 添加助手消息並設置為最終回應
                     state.addMessage(MessageRole.ASSISTANT, assistantResponse)
-                    state.finalResponse = assistantResponse
 
                     return state.withCompleted(true)
                 } catch (e: Exception) {
@@ -233,52 +233,6 @@ object ConversationNodes {
                 }
             }
         }
-    }
-
-    /**
-     * 創建消息處理節點，用於驗證消息狀態
-     */
-    fun createMessageProcessorNode(): Node<ConversationState> {
-        return object : Node<ConversationState> {
-            override suspend fun invoke(state: ConversationState): ConversationState {
-                if (state.messages.isEmpty()) {
-                    Log.e(DEBUG_TAG, "Message processor: no messages available")
-                    return state.withError("No messages available").withCompleted(true)
-                }
-
-                // 確保最後一條消息是來自用戶的
-                val lastMessage = state.messages.last()
-                if (lastMessage.role != MessageRole.USER) {
-                    Log.w(DEBUG_TAG, "Message processor: last message is not from user")
-                    // 可根據需求決定是否為錯誤
-                }
-
-                return state
-            }
-        }
-    }
-
-    /**
-     * 使用GenericNodes中的泛型實現創建開始節點
-     */
-    fun createStartNode(): Node<ConversationState> {
-        return GenericNodes.createStartNode<ConversationState>(
-            logTag = DEBUG_TAG
-        )
-    }
-
-    /**
-     * 使用GenericNodes中的泛型實現創建結束節點
-     */
-    fun createEndNode(completionMessage: String): Node<ConversationState> {
-        return GenericNodes.createEndNode<ConversationState>(
-            completionMessage = completionMessage,
-            getDuration = { it.executionDuration() },
-            getFinalResponse = { it.finalResponse },
-            getLastMessage = { it.getLastAssistantMessage() },
-            setFinalResponse = { state, response -> state.finalResponse = response },
-            logTag = DEBUG_TAG
-        )
     }
 
     /**
@@ -294,8 +248,8 @@ object ConversationNodes {
         model: SmolLM,
         toolRegistry: ToolRegistry,
         createLLMNode: (SmolLM, ToolRegistry) -> Node<S>,
-        createToolNode: (ToolRegistry) -> Node<S>,
-        createMemoryNode: (() -> Node<S>)? = null
+        createToolNode: (ToolRegistry) -> Node<S>
+//        createMemoryNode: (() -> Node<S>)? = null
     ): LangGraph<S> {
         // Create graph builder
         val graphBuilder = LangGraph<S>()
@@ -303,11 +257,11 @@ object ConversationNodes {
         // Add nodes - 使用預設值創建標準節點
         val startNode = GenericNodes.createStartNode<S>()
         val endNode = GenericNodes.createEndNode<S>("Conversation agent completed")
-        val memoryNode = createMemoryNode?.invoke() ?: createPassThroughNode()
+//        val memoryNode = createMemoryNode?.invoke() ?: createPassThroughNode()
 
         graphBuilder.addNode(NodeNames.START, startNode)
         graphBuilder.addNode(NodeNames.END, endNode)
-        graphBuilder.addNode("memory", memoryNode)
+//        graphBuilder.addNode("memory", memoryNode)
         graphBuilder.addNode("llm", createLLMNode(model, toolRegistry))
         graphBuilder.addNode("tool", createToolNode(toolRegistry))
 
@@ -318,9 +272,9 @@ object ConversationNodes {
 //        graphBuilder.setCompletionChecker { state -> state.completed }
 
         // Add edges
-        graphBuilder.addEdge(NodeNames.START, "memory")
-        graphBuilder.addEdge("memory", "llm")
-
+//        graphBuilder.addEdge(NodeNames.START, "memory")
+//        graphBuilder.addEdge("memory", "llm")
+        graphBuilder.addEdge(NodeNames.START, "llm")
         // Conditional edges
         graphBuilder.addConditionalEdges(
             "llm",

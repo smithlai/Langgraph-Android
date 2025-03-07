@@ -145,9 +145,12 @@ class ToolRegistry {
      * 處理LLM回應的整個流程：從原始回應到工具執行結果
      */
     suspend fun processLLMResponse(llmResponse: String): ProcessingResult {
+        val structuredResponse = convertToStructured(llmResponse)
+        return processLLMResponse(structuredResponse)
+    }
+    suspend fun processLLMResponse(structuredResponse: StructuredLLMResponse): ProcessingResult {
         try {
             // 將LLM回應轉換為結構化格式
-            val structuredResponse = convertToStructured(llmResponse)
             println("structuredResponse:" + structuredResponse.toolCalls.size)
             // 如果不包含工具調用，創建一個直接回應
             if (!structuredResponse.hasToolCalls()) {

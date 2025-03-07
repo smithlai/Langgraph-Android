@@ -94,7 +94,8 @@ class LangGraphExampleTest {
                 // 記錄和驗證結果
                 Log.d(DEBUG_TAG, "Execution completed in ${result.executionDuration()}ms")
                 Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-                Log.d(DEBUG_TAG, "Final response length: ${result.finalResponse.length}")
+                val final_response = result.messages.last().content
+                Log.d(DEBUG_TAG, "Final response (${final_response.length}): ${final_response}")
 
                 Assert.assertTrue("Execution should complete", result.completed)
                 Assert.assertNull("Should have no errors", result.error)
