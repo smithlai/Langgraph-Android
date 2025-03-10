@@ -1,12 +1,11 @@
 package com.smith.lai.smithtoolcalls.custom_data
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.ToolRegistry
+import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
-import io.shubham0204.smollm.SmolLM
 
 /**
  * 通用 LLM 節點 - 可用於任何實現 GraphState 接口的狀態
@@ -17,7 +16,7 @@ object LLMNodes {
     /**
      * 創建通用LLM節點，支持任何GraphState實現
      */
-    fun <S : GraphState> createLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<S> {
+    fun <S : GraphState> createLLMNode(model: LLMWithTools): Node<S> {
         return object : Node<S>() {
             // 最大跟踪消息數
             private val maxTrackedMessages = 5
@@ -44,9 +43,9 @@ object LLMNodes {
 
                     // 檢查是否需要添加系統提示
                     if (processedMessageIds.isEmpty()) {
-                        val systemPrompt = toolRegistry.createToolPrompt()
+                        val systemPrompt = model.createToolPrompt()
                         Log.d(DEBUG_TAG, "LLM node: Adding SystemPrompt(${systemPrompt.length})")
-                        model.addSystemPrompt(systemPrompt)
+                        model.addSystemMessage(systemPrompt)
                     }
 
                     // 添加新的消息
@@ -106,7 +105,7 @@ object LLMNodes {
                         processedMessageIds.add(state.messages.last().id)
 
                         // 使用 ToolRegistry 的方法檢測工具調用並儲存結構化回應
-                        val structuredResponse = toolRegistry.convertToStructured(assistantResponse)
+                        val structuredResponse = model.convertToStructured(assistantResponse)
                         state.setStructuredLLMResponse(structuredResponse)
                         state.setHasToolCalls(structuredResponse.hasToolCalls())
 

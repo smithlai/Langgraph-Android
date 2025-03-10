@@ -1,4 +1,4 @@
-package com.smith.lai.smithtoolcalls
+package com.smith.lai.smithtoolcalls.langgraph.model
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.tools.BaseTool
@@ -12,83 +12,64 @@ import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponseType
 import com.smith.lai.smithtoolcalls.tools.llm_adapter.BaseLLMToolAdapter
-import com.smith.lai.smithtoolcalls.tools.llm_adapter.Llama3_2_3B_LLMToolAdapter
-import io.github.classgraph.ClassGraph
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
-import org.koin.core.annotation.Single
 import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.findAnnotation
 
-@Single
-class ToolRegistry {
+/**
+ * 帶有工具的LLM實現
+ */
+abstract class LLMWithTools(
+    private val adapter: BaseLLMToolAdapter
+) {
     private val tools = mutableMapOf<String, BaseTool<*, *>>()
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
+//    fun unregister(name: String) {
+//        tools.remove(name)
+//    }
+//
+//    fun clear() {
+//        tools.clear()
+//    }
 
-    // 新增：保存當前 Translator 實例
-    private var translator: BaseLLMToolAdapter? = null
-
-    /**
-     * 設置 Translator
-     */
-    fun setLLMToolAdapter(newTranslator: BaseLLMToolAdapter) {
-        this.translator = newTranslator
-    }
-
-    /**
-     * 獲取當前 Translator
-     * 如果未設置，默認創建 Llama3_2_Translator
-     */
-    fun getTranslator(): BaseLLMToolAdapter {
-        if (translator == null) {
-            translator = Llama3_2_3B_LLMToolAdapter()
-        }
-        return translator!!
-    }
-
-    fun unregister(name: String) {
-        tools.remove(name)
-    }
-
-    fun clear() {
-        tools.clear()
-    }
-
-    fun register(tool: BaseTool<*, *>) {
+    fun bind_tools(tool: BaseTool<*, *>) {
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
     }
 
-    fun register(toolClass: KClass<out BaseTool<*, *>>) {
+    fun bind_tools(toolClass: KClass<out BaseTool<*, *>>) {
         val instance = toolClass.createInstance()
-        register(instance)
+        bind_tools(instance)
     }
 
-    fun register(toolClasses: List<KClass<out BaseTool<*, *>>>) {
-        toolClasses.forEach { register(it) }
+    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
+        toolClasses.forEach { bind_tools(it) }
     }
 
-    fun scanTools(packageName: String) {
-        val scanResult = ClassGraph()
-            .enableClassInfo()
-            .enableAnnotationInfo()
-            .whitelistPackages(packageName)
-            .scan()
-
-        val toolClassInfos = scanResult.getClassesWithAnnotation(ToolAnnotation::class.java.name)
-        val toolClasses = toolClassInfos.map {
-            @Suppress("UNCHECKED_CAST")
-            Class.forName(it.name).kotlin as KClass<out BaseTool<*, *>>
-        }
-        register(toolClasses)
-    }
+//    fun scanTools(packageName: String) {
+//        val scanResult = ClassGraph()
+//            .enableClassInfo()
+//            .enableAnnotationInfo()
+//            .whitelistPackages(packageName)
+//            .scan()
+//
+//        val toolClassInfos = scanResult.getClassesWithAnnotation(ToolAnnotation::class.java.name)
+//        val toolClasses = toolClassInfos.map {
+//            @Suppress("UNCHECKED_CAST")
+//            Class.forName(it.name).kotlin as KClass<out BaseTool<*, *>>
+//        }
+//        bind_tools(toolClasses)
+//    }
 
     fun getTool(name: String): BaseTool<*, *>? = tools[name]
 
@@ -97,7 +78,7 @@ class ToolRegistry {
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
     fun createToolPrompt() : String{
-        return translator?.createToolPrompt(getTools()) ?: ""
+        return adapter?.createToolPrompt(getTools()) ?: ""
     }
 
     fun generateCallId(): String {
@@ -113,7 +94,7 @@ class ToolRegistry {
     fun convertToStructured(llmResponse: String): StructuredLLMResponse {
         try {
             // 使用 Translator 解析回應
-            return getTranslator().parseResponse(llmResponse)
+            return adapter.parseResponse(llmResponse)
         } catch (e: Exception) {
             Log.e("ToolRegistry", "Error converting LLM response: ${e.message}")
             // 出現任何異常，返回原始文本作為內容
@@ -237,53 +218,17 @@ class ToolRegistry {
 
         return toolResponses
     }
+    init{
+        runBlocking {
+            init_model()
+        }
+    }
+    abstract suspend fun init_model()
+    abstract suspend fun close_model()
 
-
-//    /**
-//     * 處理原始回應並執行工具
-//     * 為了向後兼容保留此方法，但內部使用新的處理流程
-//     */
-//    @OptIn(InternalSerializationApi::class)
-//    suspend fun handleToolExecution(response: String): List<ToolResponse<*>> {
-//        try {
-//            val processingResult = processLLMResponse(response)
-//            return processingResult.toolResponses
-//        } catch (e: Exception) {
-//            Log.e("ToolRegistry", e.toString())
-//            throw e
-//        }
-//    }
-
-//    /**
-//     * 將工具回應格式化為用於發送回LLM的JSON字符串
-//     */
-//    fun formatToolResponsesToJson(toolResponses: List<ToolResponse<*>>): String {
-//        return buildString {
-//            append("[")
-//            toolResponses.forEachIndexed { index, response ->
-//                if (index > 0) append(",")
-//                append("""
-//                    {
-//                        "id": "${response.id}",
-//                        "type": "${response.type}",
-//                        "output": ${formatOutputAsJson(response.output)}
-//                    }
-//                """.trimIndent())
-//            }
-//            append("]")
-//        }
-//    }
-
-//    /**
-//     * 將輸出格式化為JSON字符串
-//     */
-//    private fun formatOutputAsJson(output: Any?): String {
-//        return when (output) {
-//            null -> "null"
-//            is Number -> output.toString()
-//            is Boolean -> output.toString()
-//            is String -> "\"${output.replace("\"", "\\\"")}\""
-//            else -> "\"${output.toString().replace("\"", "\\\"")}\""
-//        }
-//    }
+    abstract fun addSystemMessage(content: String)
+    abstract fun addUserMessage(content:String)
+    abstract fun addAssistantMessage(content:String)
+    abstract fun addToolMessage(content:String)
+    abstract fun getResponse(query: String? = null): Flow<String>
 }

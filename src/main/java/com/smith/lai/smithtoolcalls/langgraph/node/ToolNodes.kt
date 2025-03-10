@@ -1,7 +1,7 @@
 package com.smith.lai.smithtoolcalls.langgraph.nodes
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.ToolRegistry
+import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
@@ -15,7 +15,7 @@ object ToolNodes {
     /**
      * 創建通用工具節點，支持任何GraphState實現
      */
-    fun <S : GraphState> createToolNode(toolRegistry: ToolRegistry): Node<S> {
+    fun <S : GraphState> createToolNode(llmwithtool: LLMWithTools): Node<S> {
         return object : Node<S>() {
             override suspend fun invoke(state: S): S {
                 Log.d(DEBUG_TAG, "Tool node: processing with hasToolCalls=${state.hasToolCalls}")
@@ -28,7 +28,7 @@ object ToolNodes {
 
                 try {
                     // 直接使用結構化回應處理工具調用
-                    val processingResult = toolRegistry.processLLMResponse(state.structuredLLMResponse!!)
+                    val processingResult = llmwithtool.processLLMResponse(state.structuredLLMResponse!!)
 
                     // 檢查解析結果
                     if (processingResult.toolResponses.isEmpty()) {
