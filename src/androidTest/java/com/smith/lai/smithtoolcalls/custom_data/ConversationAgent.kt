@@ -4,7 +4,7 @@ import com.smith.lai.smithtoolcalls.ToolRegistry
 import com.smith.lai.smithtoolcalls.langgraph.LangGraph
 import com.smith.lai.smithtoolcalls.langgraph.node.EndNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
-import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
+import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.node.StartNode
 import com.smith.lai.smithtoolcalls.langgraph.nodes.ToolNodes
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
@@ -35,12 +35,8 @@ object ConversationAgent {
         val toolNode = createToolNode?.invoke(toolRegistry)
             ?: ToolNodes.createToolNode(toolRegistry)
 
-        // 添加標準節點 - 直接使用新的節點類
-        val startNode = StartNode<S>()
-        val endNode = EndNode<S>("Conversation agent completed")
-
-        graphBuilder.addNode(NodeNames.START, startNode)
-        graphBuilder.addNode(NodeNames.END, endNode)
+        graphBuilder.addStartNode()
+        graphBuilder.addEndNode()
         graphBuilder.addNode("llm", llmNode)
         graphBuilder.addNode("tool", toolNode)
 
@@ -73,12 +69,10 @@ object ConversationAgent {
         val graphBuilder = LangGraph<S>()
 
         // 添加节点 - 直接使用新的節點類
-        val startNode = StartNode<S>()
-        val endNode = EndNode<S>("Simple conversation completed")
         val llmNode = LLMNodes.createSimpleLLMNode<S>(model, toolRegistry)
 
-        graphBuilder.addNode(NodeNames.START, startNode)
-        graphBuilder.addNode(NodeNames.END, endNode)
+        graphBuilder.addStartNode()
+        graphBuilder.addEndNode()
         graphBuilder.addNode("llm", llmNode)
 
         // 添加边

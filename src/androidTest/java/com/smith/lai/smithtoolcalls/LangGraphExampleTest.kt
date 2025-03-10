@@ -4,7 +4,8 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.smith.lai.smithtoolcalls.custom_data.ConversationAgent
-import com.smith.lai.smithtoolcalls.custom_data.ConversationState
+import com.smith.lai.smithtoolcalls.custom_data.MyCustomState
+import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
 import com.smith.lai.smithtoolcalls.tools.llm_adapter.Llama3_2_3B_LLMToolAdapter
@@ -76,14 +77,14 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 使用新的統一代理創建圖
-                val graph = ConversationAgent.create<ConversationState>(
+                val graph = ConversationAgent.create<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
 
                 // 創建初始狀態
-                val initialState = ConversationState().apply {
-                    addUserInput("What's 125 + 437 and what's the weather in San Francisco?")
+                val initialState = MyCustomState().apply {
+                    addMessage(MessageRole.USER, "What's 125 + 437 and what's the weather in San Francisco?")
                 }
 
                 // 執行圖 - 直接傳入狀態
@@ -136,14 +137,14 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 使用簡單代理創建圖 - 不使用工具
-                val graph = ConversationAgent.createSimple<ConversationState>(
+                val graph = ConversationAgent.createSimple<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
 
                 // 創建初始狀態
-                val initialState = ConversationState().apply {
-                    addUserInput("Tell me a short joke about programming")
+                val initialState = MyCustomState().apply {
+                    addMessage(MessageRole.USER,"Tell me a short joke about programming")
                 }
 
                 // 執行圖
@@ -176,14 +177,14 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 創建對話代理
-                val graph = ConversationAgent.create<ConversationState>(
+                val graph = ConversationAgent.create<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
 
                 // 創建初始狀態
-                val state = ConversationState().apply {
-                    addUserInput("What is 42 + 17?")
+                val state = MyCustomState().apply {
+                    addMessage(MessageRole.USER, "What is 42 + 17?")
                 }
 
                 // 第一輪對話
@@ -199,9 +200,9 @@ class LangGraphExampleTest {
 
                 // 第二輪對話 - 繼續使用相同狀態
                 result.setHasToolCalls(false) // 重置工具調用標誌
-                result.setRawLLMResponse(null) // 重置原始響應
+                result.setStructuredLLMResponse(null) // 重置原始響應
                 result.withCompleted(false) // 重置完成標誌
-                result.addUserInput("Now multiply that by 3")
+                result.addMessage(MessageRole.USER,"Now multiply that by 3")
 
                 // 執行第二輪
                 result = graph.run(result)

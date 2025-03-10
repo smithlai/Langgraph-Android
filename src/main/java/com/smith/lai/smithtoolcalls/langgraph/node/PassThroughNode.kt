@@ -12,7 +12,7 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 class PassThroughNode<S : GraphState>(
     private val description: String = "pass-through",
     private val logTag: String = TAG
-) : Node<S> {
+) : Node<S>() {
     override suspend fun invoke(state: S): S {
         Log.d(logTag, "Pass-through node ($description): state forwarded")
         return state

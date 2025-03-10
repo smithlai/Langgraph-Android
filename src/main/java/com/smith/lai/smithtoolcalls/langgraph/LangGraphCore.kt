@@ -1,8 +1,10 @@
 package com.smith.lai.smithtoolcalls.langgraph
 
 import android.util.Log
+import com.smith.lai.smithtoolcalls.langgraph.node.EndNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
-import com.smith.lai.smithtoolcalls.langgraph.node.NodeNames
+import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
+import com.smith.lai.smithtoolcalls.langgraph.node.StartNode
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 
 /**
@@ -20,6 +22,15 @@ class LangGraph<S: GraphState>(
     private val logTag = "LangGraph"
     private var compiled = false
 
+    /**
+     * 添加節點
+     */
+    fun addStartNode(): LangGraph<S> {
+        return addNode(NodeNames.START, StartNode<S>())
+    }
+    fun addEndNode(): LangGraph<S> {
+        return addNode(NodeNames.END, EndNode<S>())
+    }
     /**
      * 添加節點
      */
@@ -52,17 +63,6 @@ class LangGraph<S: GraphState>(
         }
 
         return this
-    }
-
-    /**
-     * 添加條件邊（別名）
-     */
-    fun addConditionalEdge(
-        source: String,
-        conditionMap: Map<(S) -> Boolean, String>,
-        defaultTarget: String? = null
-    ): LangGraph<S> {
-        return addConditionalEdges(source, conditionMap, defaultTarget)
     }
 
     /**

@@ -16,19 +16,19 @@ object ToolNodes {
      * 創建通用工具節點，支持任何GraphState實現
      */
     fun <S : GraphState> createToolNode(toolRegistry: ToolRegistry): Node<S> {
-        return object : Node<S> {
+        return object : Node<S>() {
             override suspend fun invoke(state: S): S {
                 Log.d(DEBUG_TAG, "Tool node: processing with hasToolCalls=${state.hasToolCalls}")
 
                 // 檢查必要條件
-                if (!state.hasToolCalls || state.rawLLMResponse.isNullOrEmpty()) {
-                    Log.e(DEBUG_TAG, "Tool node: no tool calls or raw response available")
+                if (!state.hasToolCalls || state.structuredLLMResponse == null) {
+                    Log.e(DEBUG_TAG, "Tool node: no tool calls or structured response available")
                     return state.withError("No tool calls to process").withCompleted(true) as S
                 }
 
                 try {
-                    // 使用 ToolRegistry 處理 LLM 回應，包含解析和執行工具
-                    val processingResult = toolRegistry.processLLMResponse(state.rawLLMResponse!!)
+                    // 直接使用結構化回應處理工具調用
+                    val processingResult = toolRegistry.processLLMResponse(state.structuredLLMResponse!!)
 
                     // 檢查解析結果
                     if (processingResult.toolResponses.isEmpty()) {

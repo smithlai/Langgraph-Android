@@ -15,20 +15,20 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
  * @param logTag 日誌標籤
  */
 class EndNode<S : GraphState>(
-    private val completionMessage: String,
+    private val completionMessage: String = "Arriving EndNode",
     private val getDuration: ((S) -> Long)? = null,
     private val getFinalResponse: ((S) -> String)? = null,
     private val getLastMessage: ((S) -> String?)? = null,
     private val setFinalResponse: ((S, String) -> Unit)? = null,
     private val logTag: String = TAG
-) : Node<S> {
+) : Node<S>() {
     override suspend fun invoke(state: S): S {
         // 基本日誌
         Log.d(logTag, "End node: finalizing execution after ${state.stepCount} steps")
 
         // 如果提供了時間計算函數，則使用
         if (getDuration != null) {
-            val duration = getDuration(state)
+            val duration = getDuration?.invoke(state)
             Log.d(logTag, "Execution time: ${duration}ms")
         }
 
@@ -40,11 +40,11 @@ class EndNode<S : GraphState>(
 
         // 處理最終回應 (如果提供了相關函數)
         if (getFinalResponse != null && getLastMessage != null && setFinalResponse != null) {
-            val finalResponse = getFinalResponse(state)
-            if (finalResponse.isEmpty()) {
-                val lastMessage = getLastMessage(state)
+            val finalResponse = getFinalResponse?.invoke(state)
+            if (finalResponse!!.isEmpty()) {
+                val lastMessage = getLastMessage!!.invoke(state)
                 if (lastMessage != null) {
-                    setFinalResponse(state, lastMessage)
+                    setFinalResponse!!.invoke(state, lastMessage)
                     Log.d(logTag, "End node: setting final response from last message")
                 }
             }

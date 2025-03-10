@@ -1,5 +1,6 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
+import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 
 /**
@@ -13,7 +14,7 @@ abstract class GraphState {
     val messages: MutableList<Message> = mutableListOf()
     val toolResponses: MutableList<ToolResponse<*>> = mutableListOf()
     var hasToolCalls: Boolean = false
-    var rawLLMResponse: String? = null
+    var structuredLLMResponse: StructuredLLMResponse? = null
 
     private val startTime: Long = System.currentTimeMillis()
 
@@ -43,18 +44,13 @@ abstract class GraphState {
         return this
     }
 
-    fun addUserInput(content: String): GraphState {
-        addMessage(MessageRole.USER, content)
-        return this
-    }
-
     fun setHasToolCalls(value: Boolean): GraphState {
         hasToolCalls = value
         return this
     }
 
-    fun setRawLLMResponse(response: String?): GraphState {
-        rawLLMResponse = response
+    fun setStructuredLLMResponse(response: StructuredLLMResponse?): GraphState {
+        structuredLLMResponse = response
         return this
     }
 

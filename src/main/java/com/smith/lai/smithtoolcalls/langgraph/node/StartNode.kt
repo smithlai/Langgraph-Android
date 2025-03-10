@@ -11,7 +11,7 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
  */
 class StartNode<S : GraphState>(
     private val logTag: String = TAG
-) : Node<S> {
+) : Node<S>() {
     override suspend fun invoke(state: S): S {
         Log.d(logTag, "Start node: initializing graph execution")
 

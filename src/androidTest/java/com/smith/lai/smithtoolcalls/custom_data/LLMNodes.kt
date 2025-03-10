@@ -18,7 +18,7 @@ object LLMNodes {
      * 創建通用LLM節點，支持任何GraphState實現
      */
     fun <S : GraphState> createLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<S> {
-        return object : Node<S> {
+        return object : Node<S>() {
             // 最大跟踪消息數
             private val maxTrackedMessages = 5
 
@@ -105,11 +105,9 @@ object LLMNodes {
                         state.addMessage(MessageRole.ASSISTANT, assistantResponse)
                         processedMessageIds.add(state.messages.last().id)
 
-                        // 儲存原始回應供 Tool 節點使用
-                        state.setRawLLMResponse(assistantResponse)
-
-                        // 使用 ToolRegistry 的方法檢測工具調用
+                        // 使用 ToolRegistry 的方法檢測工具調用並儲存結構化回應
                         val structuredResponse = toolRegistry.convertToStructured(assistantResponse)
+                        state.setStructuredLLMResponse(structuredResponse)
                         state.setHasToolCalls(structuredResponse.hasToolCalls())
 
                         Log.d(DEBUG_TAG, "LLM node: detected tool calls = ${state.hasToolCalls}")
@@ -132,7 +130,7 @@ object LLMNodes {
      * 創建簡化版LLM節點，用於不需要工具調用的簡單對話
      */
     fun <S : GraphState> createSimpleLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<S> {
-        return object : Node<S> {
+        return object : Node<S>() {
             override suspend fun invoke(state: S): S {
                 try {
                     // 檢查消息是否為空

@@ -6,7 +6,7 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
  * 更新後的會話狀態 - 繼承自AbstractGraphState
  * 可以添加會話特有的額外功能
  */
-data class ConversationState(
+data class MyCustomState(
     // 可以添加會話特有的屬性
     var customProperty: String = ""
 ) : GraphState() {
