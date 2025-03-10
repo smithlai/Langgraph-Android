@@ -128,20 +128,6 @@ class ToolRegistry {
     }
 
     /**
-     * 根據回應文本估算token使用情況
-     * 注意：這是一個簡單的估算，實際token數可能不同
-     */
-    private fun estimateTokenUsage(response: String): TokenUsage {
-        // Todo: overwrite with JNI
-        // 一個粗略的估算：大約每4個字符等於1個token
-        val tokens = (response.length / 4) + 1
-        return TokenUsage(
-            completionTokens = tokens,
-            totalTokens = tokens
-        )
-    }
-
-    /**
      * 處理LLM回應的整個流程：從原始回應到工具執行結果
      */
     suspend fun processLLMResponse(llmResponse: String): ProcessingResult {

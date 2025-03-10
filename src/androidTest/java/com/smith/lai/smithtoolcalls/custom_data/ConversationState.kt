@@ -1,89 +1,23 @@
 package com.smith.lai.smithtoolcalls.custom_data
 
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
-import com.smith.lai.smithtoolcalls.tools.ProcessingResult
-import com.smith.lai.smithtoolcalls.tools.ToolResponse
-import java.util.UUID
 
-
-// 訊息數據類
-data class Message(
-    val role: MessageRole,
-    val content: String,
-    val id: String = UUID.randomUUID().toString()
-)
-
-// 訊息角色
-enum class MessageRole {
-    SYSTEM, USER, ASSISTANT, TOOL
-}
-
-// 定義會話狀態
+/**
+ * 更新後的會話狀態 - 繼承自AbstractGraphState
+ * 可以添加會話特有的額外功能
+ */
 data class ConversationState(
-    override var completed: Boolean = false,
-    override var error: String? = null,
-    override var stepCount: Int = 0,
-    val startTime: Long = System.currentTimeMillis(),
+    // 可以添加會話特有的屬性
+    var customProperty: String = ""
+) : GraphState() {
 
-    // 業務數據
-    val messages: MutableList<Message> = mutableListOf(),
-    val toolResponses: MutableList<ToolResponse<*>> = mutableListOf(),
-//    var processingResult: ProcessingResult? = null,
-//    var finalResponse: String = "",
-    var hasToolCalls: Boolean = false,
+    // 可以添加會話特有的方法
 
-    // 添加原始 LLM 回應字段，用於工具節點處理
-    var rawLLMResponse: String? = null
-) : GraphState {
-
-    companion object {
-        // 針對ConversationState的工具調用條件
-        val HasToolCalls: (ConversationState) -> Boolean = { state ->
-            state.hasToolCalls
-        }
-    }
-
-    override fun withCompleted(isCompleted: Boolean): ConversationState {
-        completed = isCompleted
-        return this
-    }
-
-    override fun withError(errorMessage: String): ConversationState {
-        error = errorMessage
-        return this
-    }
-
-    override fun incrementStep(): ConversationState {
-        stepCount++
-        return this
-    }
-
-    fun executionDuration(): Long = System.currentTimeMillis() - startTime
-
-    // 添加消息 - 使用 role 和 content
-    fun addMessage(role: MessageRole, content: String): ConversationState {
-        val message = Message(role, content)
-        messages.add(message)
-        return this
-    }
-
-    // 添加消息 - 使用 Message 對象
-    fun addMessage(message: Message): ConversationState {
-        messages.add(message)
-        return this
-    }
-
-    // 添加用户输入直接作为消息
-    fun addUserInput(content: String): ConversationState {
-        addMessage(MessageRole.USER, content)
-        return this
-    }
-
-    fun getLastAssistantMessage(): String? {
-        return messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content
-    }
-
-    fun getLastUserMessage(): String? {
-        return messages.lastOrNull { it.role == MessageRole.USER }?.content
-    }
+    /**
+     * 設置自定義屬性
+     */
+//    fun setCustomProperty(value: String): ConversationState {
+//        customProperty = value
+//        return this
+//    }
 }

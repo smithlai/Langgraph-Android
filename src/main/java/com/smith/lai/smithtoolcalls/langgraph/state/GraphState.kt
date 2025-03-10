@@ -1,83 +1,73 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
+import com.smith.lai.smithtoolcalls.tools.ToolResponse
 
 /**
- * 泛型狀態接口，定義狀態必須具備的基本功能
+ * 抽象GraphState實現 - 提供基本圖狀態功能的默認實現
  */
-interface GraphState {
-    val completed: Boolean
-    val error: String?
-    val stepCount: Int
+abstract class GraphState {
+    var completed: Boolean = false
+    var error: String? = null
+    var stepCount: Int = 0
 
-    fun withCompleted(isCompleted: Boolean = true): GraphState
-    fun withError(errorMessage: String): GraphState
-    fun incrementStep(): GraphState
-}
+    val messages: MutableList<Message> = mutableListOf()
+    val toolResponses: MutableList<ToolResponse<*>> = mutableListOf()
+    var hasToolCalls: Boolean = false
+    var rawLLMResponse: String? = null
 
-/**
- * 通用狀態條件
- */
-object StateConditions {
-    /**
-     * 檢查狀態是否有工具調用
-     * 根據命名約定查找hasToolCalls屬性
-     */
-    fun <S> hasToolCalls(): (S) -> Boolean = { state ->
-        // 使用反射嘗試獲取hasToolCalls屬性
-        try {
-            val method = state!!.javaClass.getMethod("getHasToolCalls")
-            method.invoke(state) as? Boolean ?: false
-        } catch (e: Exception) {
-            try {
-                // 嘗試直接訪問hasToolCalls字段
-                val field = state!!.javaClass.getDeclaredField("hasToolCalls")
-                field.isAccessible = true
-                field.get(state) as? Boolean ?: false
-            } catch (e: Exception) {
-                // 如果無法獲取，則返回false
-                false
-            }
-        }
+    private val startTime: Long = System.currentTimeMillis()
+
+    fun withCompleted(isCompleted: Boolean): GraphState {
+        completed = isCompleted
+        return this
+    }
+
+    fun withError(errorMessage: String): GraphState {
+        error = errorMessage
+        return this
+    }
+
+    fun incrementStep(): GraphState {
+        stepCount++
+        return this
+    }
+
+    fun addMessage(role: MessageRole, content: String): GraphState {
+        val message = Message(role, content)
+        messages.add(message)
+        return this
+    }
+
+    fun addMessage(message: Message): GraphState {
+        messages.add(message)
+        return this
+    }
+
+    fun addUserInput(content: String): GraphState {
+        addMessage(MessageRole.USER, content)
+        return this
+    }
+
+    fun setHasToolCalls(value: Boolean): GraphState {
+        hasToolCalls = value
+        return this
+    }
+
+    fun setRawLLMResponse(response: String?): GraphState {
+        rawLLMResponse = response
+        return this
+    }
+
+    fun getLastAssistantMessage(): String? {
+        return messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content
+    }
+
+    fun getLastUserMessage(): String? {
+        return messages.lastOrNull { it.role == MessageRole.USER }?.content
     }
 
     /**
-     * 檢查狀態是否有錯誤
+     * 計算執行持續時間
      */
-    fun <S> hasError(): (S) -> Boolean = { state ->
-        when (state) {
-            is GraphState -> state.error != null
-            else -> false
-        }
-    }
-
-    /**
-     * 檢查狀態是否已完成
-     */
-    fun <S> isComplete(): (S) -> Boolean = { state ->
-        when (state) {
-            is GraphState -> state.completed
-            else -> false
-        }
-    }
-
-    /**
-     * 組合多個條件，所有條件必須為真
-     */
-    fun <S> all(vararg conditions: (S) -> Boolean): (S) -> Boolean = { state ->
-        conditions.all { it(state) }
-    }
-
-    /**
-     * 組合多個條件，任一條件為真
-     */
-    fun <S> any(vararg conditions: (S) -> Boolean): (S) -> Boolean = { state ->
-        conditions.any { it(state) }
-    }
-
-    /**
-     * 否定條件
-     */
-    fun <S> not(condition: (S) -> Boolean): (S) -> Boolean = { state ->
-        !condition(state)
-    }
+    fun executionDuration(): Long = System.currentTimeMillis() - startTime
 }
