@@ -44,7 +44,7 @@ object LLMNodes {
 
                     // 檢查是否需要添加系統提示
                     if (processedMessageIds.isEmpty()) {
-                        val systemPrompt = toolRegistry.createSystemPrompt()
+                        val systemPrompt = toolRegistry.createToolPrompt()
                         Log.d(DEBUG_TAG, "LLM node: Adding SystemPrompt(${systemPrompt.length})")
                         model.addSystemPrompt(systemPrompt)
                     }
@@ -61,15 +61,15 @@ object LLMNodes {
                         when (message.role) {
                             MessageRole.USER -> {
                                 model.addUserMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added USER: ${message.content}...")
+                                Log.v(DEBUG_TAG, "Added USER: ${message.content}")
                             }
                             MessageRole.ASSISTANT -> {
                                 model.addAssistantMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added ASSISTANT: ${message.content}...")
+                                Log.v(DEBUG_TAG, "Added ASSISTANT: ${message.content}")
                             }
                             MessageRole.TOOL -> {
                                 model.addUserMessage(message.content)
-                                Log.v(DEBUG_TAG, "Added TOOL as USER: ${message.content}...")
+                                Log.v(DEBUG_TAG, "Added TOOL as USER: ${message.content}")
                             }
                             else -> {} // 忽略系統消息
                         }
@@ -99,7 +99,7 @@ object LLMNodes {
                         }
 
                         val assistantResponse = response.toString()
-                        Log.d(DEBUG_TAG, "LLM node: response generated: (${assistantResponse.length} chars)")
+                        Log.d(DEBUG_TAG, "LLM node: response generated (${assistantResponse.length}): ${assistantResponse}")
 
                         // 添加助手消息, 並標記為已處理
                         state.addMessage(MessageRole.ASSISTANT, assistantResponse)
@@ -121,50 +121,6 @@ object LLMNodes {
                 } catch (e: Exception) {
                     Log.e(DEBUG_TAG, "LLM node: error processing state", e)
                     return state.withError("LLM node error: ${e.message}").withCompleted(true) as S
-                }
-            }
-        }
-    }
-
-    /**
-     * 創建簡化版LLM節點，用於不需要工具調用的簡單對話
-     */
-    fun <S : GraphState> createSimpleLLMNode(model: SmolLM, toolRegistry: ToolRegistry): Node<S> {
-        return object : Node<S>() {
-            override suspend fun invoke(state: S): S {
-                try {
-                    // 檢查消息是否為空
-                    if (state.messages.isEmpty()) {
-                        Log.e(DEBUG_TAG, "Simple LLM node: no messages to process")
-                        return state.withError("No messages to process").withCompleted(true) as S
-                    }
-
-                    // 添加系統提示
-                    model.addSystemPrompt(toolRegistry.createSystemPrompt())
-
-                    // 添加所有消息歷史
-                    for (message in state.messages) {
-                        when (message.role) {
-                            MessageRole.USER -> model.addUserMessage(message.content)
-                            MessageRole.ASSISTANT -> model.addAssistantMessage(message.content)
-                            MessageRole.TOOL -> model.addUserMessage(message.content)
-                            else -> {} // 忽略系統消息
-                        }
-                    }
-
-                    // 生成回應
-                    val response = StringBuilder()
-                    model.getResponse().collect {
-                        response.append(it)
-                    }
-                    val assistantResponse = response.toString()
-
-                    // 添加助手消息
-                    state.addMessage(MessageRole.ASSISTANT, assistantResponse)
-
-                    return state.withCompleted(true) as S
-                } catch (e: Exception) {
-                    return state.withError("LLM error: ${e.message}").withCompleted(true) as S
                 }
             }
         }

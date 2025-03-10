@@ -14,7 +14,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import android.util.Log
-import kotlinx.serialization.json.add
 import java.util.UUID
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
@@ -30,9 +29,11 @@ class Llama3_2_3B_LLMToolAdapter : BaseLLMToolAdapter() {
     //  https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_2/
     //  https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/#-supported-roles-
     //  Llama3.2 system prompt and role
-    override fun createSystemPrompt(tools: List<BaseTool<*, *>>): String {
+    override fun createToolPrompt(tools: List<BaseTool<*, *>>): String {
         val function_definitions = toolSchemas(tools)
 
+        if (tools.isEmpty())
+            return ""
         return """
 You are an expert in composing functions. You are given a question and a set of possible functions. 
 Based on the question, you will need to make one or more function/tool calls to achieve the purpose. 
@@ -45,7 +46,7 @@ You SHOULD NOT include any other text in the response.
 
 Here is a list of functions in JSON format that you can invoke.
 
-${if (tools.isEmpty()) "[]" else function_definitions}
+${function_definitions}
 
 When you receive the results of a tool call, you should respond with a helpful answer based on those results.
 Do NOT call additional tools unless the user asks a new question that requires different information.

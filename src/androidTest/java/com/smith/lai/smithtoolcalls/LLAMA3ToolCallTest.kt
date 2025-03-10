@@ -176,7 +176,7 @@ Here is a list of functions in JSON format that you can invoke.
 
             // 1. 添加系统提示
             toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
-            val system_prompt = toolRegistry.createSystemPrompt()
+            val system_prompt = toolRegistry.createToolPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
@@ -211,7 +211,7 @@ Here is a list of functions in JSON format that you can invoke.
 
             // 1. 添加系统提示
             toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
-            val system_prompt = toolRegistry.createSystemPrompt()
+            val system_prompt = toolRegistry.createToolPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
@@ -249,7 +249,7 @@ Here is a list of functions in JSON format that you can invoke.
 
             // 1. 添加系统提示
             toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
-            val system_prompt = toolRegistry.createSystemPrompt()
+            val system_prompt = toolRegistry.createToolPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 
@@ -338,7 +338,7 @@ Here is a list of functions in JSON format that you can invoke.
             val llmToolAdapter = Llama3_2_3B_LLMToolAdapter()
 
             toolRegistry.setLLMToolAdapter(llmToolAdapter)
-            val system_prompt = toolRegistry.createSystemPrompt()
+            val system_prompt = toolRegistry.createToolPrompt()
             smolLM.addSystemPrompt(system_prompt)
             Log.d("${testName.methodName}", "createSystemPrompt: ${system_prompt}")
 

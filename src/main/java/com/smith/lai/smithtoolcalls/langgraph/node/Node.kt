@@ -12,6 +12,7 @@ abstract class Node<S> {
         object NodeNames {
             const val START = "__start__"
             const val END = "__end__"
+            const val TOOLS = "tools"
         }
     }
     /**

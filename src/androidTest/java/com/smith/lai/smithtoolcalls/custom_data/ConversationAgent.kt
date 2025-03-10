@@ -2,10 +2,8 @@ package com.smith.lai.smithtoolcalls.custom_data
 
 import com.smith.lai.smithtoolcalls.ToolRegistry
 import com.smith.lai.smithtoolcalls.langgraph.LangGraph
-import com.smith.lai.smithtoolcalls.langgraph.node.EndNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
-import com.smith.lai.smithtoolcalls.langgraph.node.StartNode
 import com.smith.lai.smithtoolcalls.langgraph.nodes.ToolNodes
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
@@ -18,7 +16,7 @@ object ConversationAgent {
     /**
      * 創建標準會話代理，適用於任何GraphState實現
      */
-    fun <S : GraphState> create(
+    fun <S : GraphState> createExampleWithTools(
         model: SmolLM,
         toolRegistry: ToolRegistry,
         // 可選的自定義節點創建函數
@@ -38,7 +36,7 @@ object ConversationAgent {
         graphBuilder.addStartNode()
         graphBuilder.addEndNode()
         graphBuilder.addNode("llm", llmNode)
-        graphBuilder.addNode("tool", toolNode)
+        graphBuilder.addNode(NodeNames.TOOLS, toolNode)
 
         // 添加邊
         graphBuilder.addEdge(NodeNames.START, "llm")
@@ -47,13 +45,13 @@ object ConversationAgent {
         graphBuilder.addConditionalEdges(
             "llm",
             mapOf(
-                StateConditions.hasToolCalls<S>() to "tool",
+                StateConditions.hasToolCalls<S>() to NodeNames.TOOLS,
                 StateConditions.isComplete<S>() to NodeNames.END
             ),
             defaultTarget = NodeNames.END
         )
 
-        graphBuilder.addEdge("tool", "llm")
+        graphBuilder.addEdge(NodeNames.TOOLS, "llm")
 
         // 編譯並返回圖
         return graphBuilder.compile()
@@ -62,14 +60,14 @@ object ConversationAgent {
     /**
      * 创建简化对话代理 - 不使用工具调用，仅对话
      */
-    fun <S : GraphState> createSimple(
+    fun <S : GraphState> createExampleWithoutTools(
         model: SmolLM,
         toolRegistry: ToolRegistry
     ): LangGraph<S> {
         val graphBuilder = LangGraph<S>()
 
         // 添加节点 - 直接使用新的節點類
-        val llmNode = LLMNodes.createSimpleLLMNode<S>(model, toolRegistry)
+        val llmNode = LLMNodes.createLLMNode<S>(model, toolRegistry)
 
         graphBuilder.addStartNode()
         graphBuilder.addEndNode()

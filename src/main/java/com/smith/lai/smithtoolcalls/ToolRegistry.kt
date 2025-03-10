@@ -6,7 +6,6 @@ import com.smith.lai.smithtoolcalls.tools.FinishReason
 import com.smith.lai.smithtoolcalls.tools.ProcessingResult
 import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
 import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.TokenUsage
 import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
 import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
 import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
@@ -97,8 +96,8 @@ class ToolRegistry {
 
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
-    fun createSystemPrompt() : String{
-        return translator?.createSystemPrompt(getTools()) ?: ""
+    fun createToolPrompt() : String{
+        return translator?.createToolPrompt(getTools()) ?: ""
     }
 
     fun generateCallId(): String {

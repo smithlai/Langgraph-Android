@@ -8,7 +8,7 @@ import kotlin.reflect.KProperty1
 abstract class BaseLLMToolAdapter {
     abstract fun toolSchemas(tools: List<BaseTool<*, *>>) : String
 
-    abstract fun createSystemPrompt(tools: List<BaseTool<*, *>>): String
+    abstract fun createToolPrompt(tools: List<BaseTool<*, *>>): String
 
     /**
      * 解析LLM回應為結構化格式

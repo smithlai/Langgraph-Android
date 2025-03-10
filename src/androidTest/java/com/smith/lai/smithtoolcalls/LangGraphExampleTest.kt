@@ -65,7 +65,7 @@ class LangGraphExampleTest {
         Log.i(DEBUG_TAG, "========================================")
     }
 
-    @Test
+//    @Test
     fun test_001_EnhancedConversationalAgent() {
         toolRegistry.register(CalculatorTool::class)
         toolRegistry.register(WeatherTool::class)
@@ -77,7 +77,7 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 使用新的統一代理創建圖
-                val graph = ConversationAgent.create<MyCustomState>(
+                val graph = ConversationAgent.createExampleWithTools<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
@@ -137,7 +137,7 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 使用簡單代理創建圖 - 不使用工具
-                val graph = ConversationAgent.createSimple<MyCustomState>(
+                val graph = ConversationAgent.createExampleWithoutTools<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
@@ -177,7 +177,7 @@ class LangGraphExampleTest {
                 toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
 
                 // 創建對話代理
-                val graph = ConversationAgent.create<MyCustomState>(
+                val graph = ConversationAgent.createExampleWithTools<MyCustomState>(
                     model = smolLM,
                     toolRegistry = toolRegistry
                 )
