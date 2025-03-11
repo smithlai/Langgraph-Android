@@ -1,6 +1,5 @@
-package com.smith.lai.smithtoolcalls.custom_data
+package com.smith.lai.smithtoolcalls.langgraph.model
 
-import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.model.adapter.BaseLLMToolAdapter
 import io.shubham0204.smollm.SmolLM
 import kotlinx.coroutines.flow.Flow
@@ -8,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 class SmolLMWithTools(adapter: BaseLLMToolAdapter, val smolLM: SmolLM): LLMWithTools(adapter) {
 
     override suspend fun init_model() {
+        // Model initialization logic
     }
 
     override suspend fun close_model() {
@@ -31,7 +31,8 @@ class SmolLMWithTools(adapter: BaseLLMToolAdapter, val smolLM: SmolLM): LLMWithT
     }
 
     override fun getResponse(query: String?): Flow<String> {
+        if (query?.isNotEmpty() == true)
+            return smolLM.getResponse(query)
         return smolLM.getResponse()
     }
-
 }

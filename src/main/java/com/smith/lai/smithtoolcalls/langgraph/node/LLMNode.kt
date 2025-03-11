@@ -31,11 +31,9 @@ class LLMNode<S : GraphState>(
             // 防止上下文溢出-仅处理最近消息
             val messagesToProcess = state.messages.takeLast(maxTrackedMessages)
 
-            // 检查是否需要添加系统提示
-            if (processedMessageIds.isEmpty()) {
-                val systemPrompt = model.createToolPrompt()
-                Log.d(debugTag, "LLM node: Adding SystemPrompt(${systemPrompt.length})")
-                model.addSystemMessage(systemPrompt)
+            // 检查是否需要添加工具提示（使用新的方法）
+            if (!model.isToolPromptAdded()) {
+                model.addToolPrompt()
             }
 
             // 添加新的消息（与原代码逻辑相同）

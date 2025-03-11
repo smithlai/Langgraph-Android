@@ -68,8 +68,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.github.classgraph:classgraph:4.8.179")
     implementation(project(":smollm"))
-    testImplementation(project(":smollm"))
-    androidTestImplementation(project(":smollm"))
+//    testImplementation(project(":smollm"))
+//    androidTestImplementation(project(":smollm"))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

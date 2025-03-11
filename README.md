@@ -1,30 +1,24 @@
 # Smith Tool Call Module
 
-SmithToolCall is a module that connects LLM tool call outputs directly to Android function calls. 
-It translates AI-generated instructions into executable Android functions, enabling seamless integration between language models and Android applications.
+## Overview
+
+SmithToolCall is an Android library that provides tool_calls and langgraph-like function in Android.
 
 
-## How to use
+## Installation
 
-### Setup
-
-#### Main Application
 ##### root/setting.gradle.kts
 ```kotlin
 .....
 include(":SmithToolCalls")
 ......
 ```
-
 ##### root/build.gradle.kts
 ```kotlin
 plugins {
-    .....
-    id ("kotlinx-serialization")
-    .....
+    id("kotlinx-serialization")
 }
-.....
-.....
+
 dependencies {
     ....
     implementation(project(":SmithToolCalls"))
@@ -35,278 +29,346 @@ dependencies {
     implementation("io.github.classgraph:classgraph:4.8.179")
 }
 ```
-(Optional)
-#####  root/Application.kt
+
+#####  root/Application.kt (Deprecated)
 ```kotlin
-class XXXApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        startKoin {
-            androidContext(this@XXXApplication)
-            modules(
-                listOf(
-                    KoinAppModule().module,
-                    SmithToolCallsModule().module // 添加 Android module 的 Koin module
-                )
-            )
-        }
-        ...
-        ...
-    }
-}
+// class XXXApplication : Application() {
+//     override fun onCreate() {
+//         super.onCreate()
+//         startKoin {
+//             androidContext(this@XXXApplication)
+//             modules(
+//                 listOf(
+//                     KoinAppModule().module,
+//                     SmithToolCallsModule().module // auto include Koin module (@Single, @Factory, or @Inject)
+//                 )
+//             )
+//         }
+//         ...
+//         ...
+//     }
+// }
 ```
+## Basic Usage
 
-### Example 1
-#### Tool Definiation
+### Tool Creation
+
 ```kotlin
-
-@Serializable
-data class CalculatorInput(
-    val param1: Int,
-    val param2: Int
-)
-
 @ToolAnnotation(
     name = "calculator_add",
-    description = "Add two numbers together",
-    returnDescription = "The sum of the two numbers"
+    description = "Add two integers together",
+    returnDescription = "The sum of two integers"
 )
 class CalculatorTool : BaseTool<CalculatorInput, Int>() {
-    override suspend fun invoke(input: CalculatorInput): Int {
-        val result = input.param1 + input.param2
-        return result
-    }
-    override fun getFollowUpMetadata(response: Int): ToolFollowUpMetadata {
-        val customPrompt = """
-The tool returned: "$response". 
-Based on this information, continue answering the request.
-"""
+    @Serializable
+    data class CalculatorInput(val param1: Int, val param2: Int)
 
+    override suspend fun invoke(input: CalculatorInput): Int {
+        return input.param1 + input.param2
+    }
+
+    override fun getFollowUpMetadata(response: Int): ToolFollowUpMetadata {
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
-            shouldTerminateFlow = false,
-            customFollowUpPrompt = customPrompt // 現在使用非空字串
-        )
-    }
-}
-
-```
-
-#### Usage:
-```kotlin
-val calculator = Calculator()
-toolRegistry.register(calculator)
-toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
-........
-........
-
-val response = llm.query("what is 2+3") //[calculator_add(para1=2, param2=3)]
-val processingResult = toolRegistry.processLLMResponse(response)
-
-if (processingResult.toolResponses.isNotEmpty() && processingResult.requiresFollowUp) {
-    
-    // opt1. tool response (Json)
-    // val toolResponseJson = processingResult.getToolResponseJson()
-    // opt2. tool response (value only)
-    // val toolResponse = processingResult.toolResponses.first()
-    // opt3.使用ProcessingResult中的buildFollowUpPrompt方法來構建適當的後續提示詞
-    val followUpPrompt = processingResult.buildFollowUpPrompt()
-
-    llm.query(followUpPrompt)// 讓llm繼續
-}
-
-
-
-
-```
-
-### Example 2:
-
-#### Tool Definiation
-```kotlin
-import android.util.Log
-import com.smith.lai.smithtoolcalls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
-import kotlinx.serialization.Serializable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
-
-@Serializable
-data class UIBridgeInput(val command: String = "")
-
-@ToolAnnotation(
-    name = "screen_control",
-    description = """
-Manipulating screen with specific command.
-acceptable command value:
-    "chat_setting": open chat setting Screen
-    "rag_setting": open Rag setting Screen
-
-
-"""
-)
-class UIBridgeTool : BaseTool<UIBridgeInput, Unit>() {
-
-    // 保存跳轉回調
-    private var screenControlCallback: ((cmd:String) -> Unit)? = null
-
-    fun setNavigateCallback(callback: (cmd:String) -> Unit) {
-        screenControlCallback = callback
-    }
-
-    override suspend fun invoke(input: UIBridgeInput): Unit = withContext(Dispatchers.Main) {
-        Log.d("UIBridgeTool","Executing command: ${input.command}")
-        screenControlCallback?.invoke(input.command)
-    }
-    override fun getFollowUpMetadata(response: Unit): ToolFollowUpMetadata {
-        return ToolFollowUpMetadata(
-            requiresFollowUp = false,
-            shouldTerminateFlow = true,
-            customFollowUpPrompt = ""
+            customFollowUpPrompt = "The calculation result is $response"
         )
     }
 }
 ```
 
+### Example1: LLM with Tools Integration
+
 ```kotlin
-@Serializable
-data class RagSearchInput(val query: String = "")
+class ChatViewModel(
+    private val smolLM: SmolLM
+) {
+    private val smolLMWithTools = SmolLMWithTools(
+        Llama3_2_3B_LLMToolAdapter(), 
+        smolLM
+    )
 
-@ToolAnnotation(
-    name = "rag_serach",
-    description = """
-search data from rag database with specified query keyword
-"""
-)
-class RagSearchTool(chunksDB: ChunksDB, sentenceEncoder: SentenceEmbeddingProvider) : BaseTool<RagSearchInput, String>() {
-    val chunksDB: ChunksDB = chunksDB
-    val sentenceEncoder:SentenceEmbeddingProvider = sentenceEncoder
+    init {
+        val uiBridgeTool = UIBridgeTool().apply {
+            setNavigateCallback { cmd ->
+                when (cmd) {
+                    "chat_setting" -> showMoreOptionsPopup()
+                    "rag_setting" -> navigateToRAGSettings()
+                }
+            }
+        }
 
+        val ragTool = RagSearchTool(chunksDB, sentenceEncoder)
 
-    override suspend fun invoke(input: RagSearchInput): String = withContext(Dispatchers.Main) {
-        val query = input.query
-        Log.d("RagSearchTool","RAG Search: ${query}")
-        val retrieveDuration = measureTimedValue {
-            var jointContext = ""
-            val retrievedContextList = ArrayList<RetrievedContext>()
-            val queryEmbedding = sentenceEncoder.encodeText(query)
-            chunksDB.getSimilarChunks(queryEmbedding)
-                .forEach {
-                    jointContext += "\n" + it.second.chunkData
-                    retrievedContextList.add(
-                        RetrievedContext(
-                            it.second.docFileName,
-                            it.second.chunkData
+        smolLMWithTools.bind_tools(listOf(uiBridgeTool, ragTool))
+    }
+
+    fun sendUserQuery(query: String) {
+        viewModelScope.launch {
+            if (!smolLMWithTools.isToolPromptAdded()) {
+                smolLMWithTools.addToolPrompt()
+            }
+
+            smolLMWithTools.getResponse(query).collect { partialResponse ->
+                val processingResult = smolLMWithTools.processLLMResponse(partialResponse)
+                
+                if (processingResult.toolResponses.isNotEmpty()) {
+                    if (processingResult.requiresFollowUp) {
+                        val followUpPrompt = processingResult.buildFollowUpPrompt()
+                        Log.e("toolResponses", "Following up with: $followUpPrompt")
+                        sendUserQuery(followUpPrompt)
+                    }
+                }
+            }
+        }
+    }
+// Simulated LLM Response in Llama3.2 Tool Call Format
+// Original Query: "What's the weather in San Francisco and find me a good restaurant nearby?"
+// 
+// LLM Response: 
+// [weather_tool(city="San Francisco"), rag_search_tool(query="top-rated restaurants in San Francisco")]
+// 
+// Parsed Tool Calls:
+// 1. Weather Tool
+//    - Input: { city: "San Francisco" }
+//    - Output: "65°F, Partly Cloudy"
+// 
+// 2. RAG Search Tool
+//    - Input: { query: "top-rated restaurants in San Francisco" }
+//    - Output: "Zuni Cafe - Mediterranean cuisine, 4.5/5 stars"
+// 
+// Final Assistant Response:
+// "In San Francisco, it's currently 65°F with partly cloudy skies. 
+//  I recommend Zuni Cafe, a highly-rated Mediterranean restaurant with 4.5/5 stars."
+}
+```
+
+### LangGraph Workflow
+
+```kotlin
+class LangGraphExample {
+    suspend fun runConversation() {
+        val smolLM = SmolLM()
+        smolLM.create(
+            "/path/to/model/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf",
+            0.1f, 0.0f, false, 2048
+        )
+
+        val llmWithTools = SmolLMWithTools(
+            Llama3_2_3B_LLMToolAdapter(), 
+            smolLM
+        )
+
+        llmWithTools.bind_tools(listOf(
+            CalculatorTool(), 
+            WeatherTool()
+        ))
+
+        val graph = ConversationAgent.createExampleWithTools<MyCustomState>(
+            model = llmWithTools
+        )
+
+        val initialState = MyCustomState().apply {
+            addMessage(MessageRole.USER, "What's 125 + 437 and the weather in San Francisco?")
+        }
+
+        val result = graph.run(initialState)
+    }
+}
+// Simulated Workflow Demonstration
+// 
+// Input: "What's 125 + 437 and the weather in San Francisco?"
+// 
+// LLM Response in Llama3.2 Tool Call Format:
+// [calculator_add(param1=125, param2=437), weather_tool(city="San Francisco")]
+// 
+// Tool Call Execution:
+// 1. Calculator Tool
+//    - Input: { param1: 125, param2: 437 }
+//    - Output: 562
+//    - Follow-up Prompt: "The calculation result is 562"
+// 
+// 2. Weather Tool
+//    - Input: { city: "San Francisco" }
+//    - Output: "65°F, Partly Cloudy, Humidity: 62%"
+//    - Follow-up Prompt: "The current weather in San Francisco"
+// 
+// Final Aggregated Response:
+// "Let me help you with that:
+// 
+// The result of 125 + 437 is 562.
+// 
+// In San Francisco, it's currently 65°F with partly cloudy skies. 
+// The humidity is at 62%, making for a mild day.
+// 
+// Is there anything else I can help you with?"
+// 
+// Workflow Details:
+// - Total Tool Calls: 2
+```
+
+## Customizing LLMwithTools
+```kotlin
+abstract class CustomLLMWithTools(
+    adapter: BaseLLMToolAdapter, 
+    private val customLLM: YourLanguageModel
+) : LLMWithTools(adapter) {
+
+    // Custom model initialization
+    override suspend fun init_model() {
+        // Implement specific model loading logic
+        customLLM.prepare()
+    }
+
+    // Custom model cleanup
+    override suspend fun close_model() {
+        customLLM.shutdown()
+    }
+
+    // Custom message handling methods
+    override fun addSystemMessage(content: String) {
+        customLLM.setSystemContext(content)
+    }
+
+    override fun addUserMessage(content: String) {
+        customLLM.appendUserMessage(content)
+    }
+
+    override fun addAssistantMessage(content: String) {
+        customLLM.appendAssistantResponse(content)
+    }
+
+    // Custom response generation
+    override fun getResponse(query: String?): Flow<String> {
+        return if (query != null) {
+            customLLM.generateResponse(query)
+        } else {
+            customLLM.continueGeneration()
+        }
+    }
+
+    // Optional: Add custom tool-specific methods
+    fun setCustomModelParameters(temperature: Float, topP: Float) {
+        customLLM.updateGenerationParameters(temperature, topP)
+    }
+}
+
+```
+
+## Customizing LLM Adapter
+
+```kotlin
+class Llama3_2_3B_LLMToolAdapter : BaseLLMToolAdapter() {
+    private val json = Json {
+        prettyPrint = true
+        prettyPrintIndent = "    "
+    }
+
+    override fun toolSchemas(tools: List<BaseTool<*, *>>): String {
+        val toolsArray = buildJsonArray {
+            tools.forEach { tool ->
+                val toolAnnotation = tool::class.findAnnotation<ToolAnnotation>() 
+                    ?: throw IllegalStateException("Tool annotation not found")
+
+                val parameterType = tool.getParameterType()
+
+                if (parameterType != null) {
+                    add(buildJsonObject {
+                        put("name", toolAnnotation.name)
+                        put("description", toolAnnotation.description)
+
+                        putJsonObject("parameters") {
+                            put("type", "dict")
+
+                            val requiredProperties = mutableListOf<String>()
+                            parameterType.memberProperties.forEach { property ->
+                                val isNullable = property.returnType.isMarkedNullable
+                                if (!isNullable) {
+                                    requiredProperties.add(property.name)
+                                }
+                            }
+
+                            put("required", buildJsonArray {
+                                requiredProperties.forEach { 
+                                    add(JsonPrimitive(it)) 
+                                }
+                            })
+
+                            putJsonObject("properties") {
+                                parameterType.memberProperties.forEach { property ->
+                                    val propertyName = property.name
+                                    val propertyType = getJsonType(property)
+
+                                    putJsonObject(propertyName) {
+                                        put("type", propertyType)
+                                        put("description", "The $propertyName parameter")
+                                    }
+                                }
+                            }
+                        }
+
+                        if (toolAnnotation.returnDescription.isNotEmpty()) {
+                            put("returnDescription", toolAnnotation.returnDescription)
+                        }
+                    })
+                }
+            }
+        }
+
+        return json.encodeToString(toolsArray)
+    }
+
+    override fun parseResponse(response: String): StructuredLLMResponse {
+        try {
+            val trimmedResponse = response.trim()
+
+            if (trimmedResponse.startsWith("[") && trimmedResponse.endsWith("]")) {
+                val toolCalls = parseToolCalls(trimmedResponse)
+
+                if (toolCalls.isNotEmpty()) {
+                    return StructuredLLMResponse(
+                        toolCalls = toolCalls,
+                        metadata = ResponseMetadata(
+                            tokenUsage = estimateTokenUsage(trimmedResponse),
+                            finishReason = FinishReason.TOOL_CALLS.value
                         )
                     )
                 }
-            jointContext
-        }
-        return@withContext retrieveDuration.value
-    }
-    override fun getFollowUpMetadata(response: String): ToolFollowUpMetadata {
-        val customPrompt = "I found this information in the database:\n\n```\n$response\n```\n\n" +
-                "Based on this information, please answer the original question."
+            }
 
-        return ToolFollowUpMetadata(
-            requiresFollowUp = true,
-            shouldTerminateFlow = false,
-            customFollowUpPrompt = customPrompt
+            return StructuredLLMResponse(
+                content = response,
+                metadata = ResponseMetadata(
+                    tokenUsage = estimateTokenUsage(response),
+                    finishReason = FinishReason.STOP.value
+                )
+            )
+        } catch (e: Exception) {
+            return StructuredLLMResponse(
+                content = response,
+                metadata = ResponseMetadata(
+                    finishReason = FinishReason.ERROR.value
+                )
+            )
+        }
+    }
+
+    private fun estimateTokenUsage(response: String): TokenUsage {
+        val tokens = (response.length / 4) + 1
+        return TokenUsage(
+            completionTokens = tokens,
+            totalTokens = tokens
         )
     }
 }
 ```
 
-#### ViewModel
-``` kotlin
-private val _navigationEvent = MutableSharedFlow<String>()
-val navigationEvent = _navigationEvent.asSharedFlow()
-val uiBridgeTool = UIBridgeTool()
-val ragTool = RagSearchTool(chunksDB,sentenceEncoder)
-uiBridgeTool.setNavigateCallback { cmd ->
-    // Handle the navigation command
-    when (cmd) {
-        "chat_setting" ->
-            viewModelScope.launch {
-                showMoreOptionsPopup()
-            }
-        "rag_setting" ->
-            viewModelScope.launch {
-                _navigationEvent.emit(value = "rag_setting")
-            }
-        else -> Log.d("Navigation", "Unknown command: $cmd")
-    }
-}
+## Appendix and Working Notes
 
-toolRegistry.register(uiBridgeTool)
-toolRegistry.register(ragTool)
-toolRegistry.setLLMToolAdapter(Llama3_2_3B_LLMToolAdapter())
+This is just an working note.
 
-....
-.....
+### Jetpack Compose Integration
 
-if (processingResult.toolResponses.isNotEmpty()) {
-    if (processingResult.requiresFollowUp) {//需要LLM繼續
-        // 1.使用buildFollowUpPrompt方法獲取適當的後續提示詞
-        val followUpPrompt = processingResult.buildFollowUpPrompt()
-        Log.e("toolResponses", "Following up with: $followUpPrompt")
-
-        // 2.遞歸調用處理後續提示詞
-        sendUserQuery(followUpPrompt)
-        return@launch
-    } else {
-        // 工具被調用但不需要後續處理（例如UI導航）
-        Log.e("toolResponses", "Tool executed, no follow-up needed")
-        ......
-        ......
-    }
-} else {
-    // 無工具調用，正常完成響應
-    .....
-    ......
-}
-```
-
-#### UI
-```kotlin
-LaunchedEffect(Unit) {
-    viewModel.navigationEvent.collect { command ->
-        when(command){
-            "chat_setting" -> {
-                // This is processed in viewModel
-                //viewModel.showMoreOptionsPopup()
-            }
-            "rag_setting" -> {
-                onRAGChatClick()
-            }
-            else -> {
-                Log.e("viewModel.navigationEvent.collect", "invalid command: ${command}")
-            }
-        }
-
-    }
-}
-```
-
-
-
-
-## Customized LLM Adaptor : 
-
-
-
-example: Llama3_2_3B_LLMToolAdapter
-
-You can specify your own class by extends BaseLLMToolAdapter system prompt and parser here.
-
-
-
-## Appendix and working Note
-
-### Jetpack compose
-
-__module/build.gradle.kts__
+In `module/build.gradle.kts`:
 ```kotlin
 plugins {
     .....
@@ -324,7 +386,7 @@ android{
     ....
 }
 ....
-// Koin Annotations 的一個 編譯時驗證機制，用來在 KSP（Kotlin Symbol Processing）階段檢查 Koin 設定是否正確
+// A compile-time verification mechanism for Koin Annotations, used to check Koin configuration correctness during the Kotlin Symbol Processing (KSP) phase
 ksp {
     arg("KOIN_CONFIG_CHECK", "true")
 }
@@ -347,6 +409,16 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.github.classgraph:classgraph:4.8.179")
 }
-....
 ```
 
+## License
+
+Apache License 2.0
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request

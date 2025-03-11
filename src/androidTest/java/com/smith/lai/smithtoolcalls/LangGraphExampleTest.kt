@@ -5,7 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.smith.lai.smithtoolcalls.custom_data.ConversationAgent
 import com.smith.lai.smithtoolcalls.custom_data.MyCustomState
-import com.smith.lai.smithtoolcalls.custom_data.SmolLMWithTools
+import com.smith.lai.smithtoolcalls.langgraph.model.SmolLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool

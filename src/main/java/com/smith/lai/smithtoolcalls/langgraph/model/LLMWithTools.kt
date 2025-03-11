@@ -34,6 +34,10 @@ abstract class LLMWithTools(
         ignoreUnknownKeys = true
         isLenient = true
     }
+
+    // Track whether tool prompt has been added
+    private var isToolPromptAdded = false
+
 //    fun unregister(name: String) {
 //        tools.remove(name)
 //    }
@@ -46,6 +50,8 @@ abstract class LLMWithTools(
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
+        // Reset prompt status when tools are modified
+        isToolPromptAdded = false
     }
 
     fun bind_tools(toolClass: KClass<out BaseTool<*, *>>) {
@@ -53,7 +59,7 @@ abstract class LLMWithTools(
         bind_tools(instance)
     }
 
-//    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
+    //    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
 //        toolClasses.forEach { bind_tools(it) }
 //    }
     fun bind_tools(tools: List<BaseTool<*, *>>) {
@@ -83,6 +89,21 @@ abstract class LLMWithTools(
 
     fun createToolPrompt() : String{
         return adapter?.createToolPrompt(getTools()) ?: ""
+    }
+
+    // New method to add tool prompt to the model and mark as added
+    fun addToolPrompt() {
+        if (!isToolPromptAdded) {
+            val systemPrompt = createToolPrompt()
+            Log.d(TAG, "Adding ToolPrompt(${systemPrompt.length})")
+            addSystemMessage(systemPrompt)
+            isToolPromptAdded = true
+        }
+    }
+
+    // Check if tool prompt has been added
+    fun isToolPromptAdded(): Boolean {
+        return isToolPromptAdded
     }
 
     fun generateCallId(): String {
