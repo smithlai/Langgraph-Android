@@ -142,7 +142,7 @@ class ChatViewModel(
 }
 ```
 
-### LangGraph Workflow
+### Example2: LangGraph Workflow
 
 ```kotlin
 class LangGraphExample {

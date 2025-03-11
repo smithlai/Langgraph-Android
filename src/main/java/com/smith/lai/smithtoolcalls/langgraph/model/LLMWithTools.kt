@@ -12,7 +12,11 @@ import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponseType
 import com.smith.lai.smithtoolcalls.langgraph.model.adapter.BaseLLMToolAdapter
+import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
+import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -23,11 +27,11 @@ import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.findAnnotation
 
 /**
- * 帶有工具的LLM實現
+ * 帶有工具的LLM實現，整合了處理狀態和工具調用的高層次功能
  */
 abstract class LLMWithTools(
     private val adapter: BaseLLMToolAdapter,
-    private val TAG:String = "LLMWithTools"
+    private val TAG: String = "LLMWithTools"
 ) {
     private val tools = mutableMapOf<String, BaseTool<*, *>>()
     private val json = Json {
@@ -35,22 +39,14 @@ abstract class LLMWithTools(
         isLenient = true
     }
 
-    // Track whether tool prompt has been added
+    // 追踪工具提示是否已添加
     private var isToolPromptAdded = false
-
-//    fun unregister(name: String) {
-//        tools.remove(name)
-//    }
-//
-//    fun clear() {
-//        tools.clear()
-//    }
 
     fun bind_tools(tool: BaseTool<*, *>) {
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
-        // Reset prompt status when tools are modified
+        // 當修改工具時重置提示狀態
         isToolPromptAdded = false
     }
 
@@ -59,27 +55,9 @@ abstract class LLMWithTools(
         bind_tools(instance)
     }
 
-    //    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
-//        toolClasses.forEach { bind_tools(it) }
-//    }
     fun bind_tools(tools: List<BaseTool<*, *>>) {
         tools.forEach { bind_tools(it) }
     }
-
-//    fun scanTools(packageName: String) {
-//        val scanResult = ClassGraph()
-//            .enableClassInfo()
-//            .enableAnnotationInfo()
-//            .whitelistPackages(packageName)
-//            .scan()
-//
-//        val toolClassInfos = scanResult.getClassesWithAnnotation(ToolAnnotation::class.java.name)
-//        val toolClasses = toolClassInfos.map {
-//            @Suppress("UNCHECKED_CAST")
-//            Class.forName(it.name).kotlin as KClass<out BaseTool<*, *>>
-//        }
-//        bind_tools(toolClasses)
-//    }
 
     fun getTool(name: String): BaseTool<*, *>? = tools[name]
 
@@ -87,11 +65,16 @@ abstract class LLMWithTools(
 
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
-    fun createToolPrompt() : String{
+    /**
+     * 創建工具提示
+     */
+    fun createToolPrompt(): String {
         return adapter?.createToolPrompt(getTools()) ?: ""
     }
 
-    // New method to add tool prompt to the model and mark as added
+    /**
+     * 添加工具提示到模型並標記為已添加
+     */
     fun addToolPrompt() {
         if (!isToolPromptAdded) {
             val systemPrompt = createToolPrompt()
@@ -101,11 +84,16 @@ abstract class LLMWithTools(
         }
     }
 
-    // Check if tool prompt has been added
+    /**
+     * 檢查工具提示是否已添加
+     */
     fun isToolPromptAdded(): Boolean {
         return isToolPromptAdded
     }
 
+    /**
+     * 生成調用ID
+     */
     fun generateCallId(): String {
         val timestamp = System.currentTimeMillis()
         val uuid = UUID.randomUUID().toString().replace("-", "")
@@ -114,15 +102,12 @@ abstract class LLMWithTools(
 
     /**
      * 轉換LLM的原始回應為結構化格式
-     * 使用當前設置的 Translator 來解析回應
      */
     fun convertToStructured(llmResponse: String): StructuredLLMResponse {
         try {
-            // 使用 Translator 解析回應
             return adapter.parseResponse(llmResponse)
         } catch (e: Exception) {
             Log.e(TAG, "Error converting LLM response: ${e.message}")
-            // 出現任何異常，返回原始文本作為內容
             return StructuredLLMResponse(
                 content = llmResponse,
                 metadata = ResponseMetadata(
@@ -139,13 +124,14 @@ abstract class LLMWithTools(
         val structuredResponse = convertToStructured(llmResponse)
         return processLLMResponse(structuredResponse)
     }
+
     /**
-     * 處理LLM回應的整個流程：從原始回應到工具執行結果
+     * 處理結構化LLM回應
      */
     suspend fun processLLMResponse(structuredResponse: StructuredLLMResponse): ProcessingResult {
         try {
-            // 將LLM回應轉換為結構化格式
-            println("structuredResponse:" + structuredResponse.toolCalls.size)
+            Log.d(TAG, "Processing structured response with ${structuredResponse.toolCalls.size} tool calls")
+
             // 如果不包含工具調用，創建一個直接回應
             if (!structuredResponse.hasToolCalls()) {
                 return ProcessingResult(
@@ -187,6 +173,10 @@ abstract class LLMWithTools(
             )
         }
     }
+
+    /**
+     * 執行工具調用
+     */
     @OptIn(InternalSerializationApi::class)
     private suspend fun executeTools(toolCalls: List<ToolCallInfo>): List<ToolResponse<*>> {
         val toolResponses = mutableListOf<ToolResponse<*>>()
@@ -199,7 +189,6 @@ abstract class LLMWithTools(
                     id = toolCall.id,
                     type = ToolResponseType.ERROR,
                     output = "Tool ${toolCall.function.name} not found",
-                    // 默認的後續處理元數據
                     followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )
                 toolResponses.add(errorResponse)
@@ -237,7 +226,6 @@ abstract class LLMWithTools(
                     id = toolCall.id,
                     type = ToolResponseType.ERROR,
                     output = "Error executing tool: ${e.message}",
-                    // 默認後續處理元數據
                     followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )
                 toolResponses.add(errorResponse)
@@ -246,17 +234,128 @@ abstract class LLMWithTools(
 
         return toolResponses
     }
-    init{
+
+    /**
+     * 高層次方法：處理狀態中的消息並返回更新後的狀態
+     */
+    suspend fun processState(state: GraphState): GraphState {
+        try {
+            // 檢查錯誤或空消息列表
+            if (state.error != null || state.messages.isEmpty()) {
+                return state.withCompleted(true)
+            }
+
+            // 準備模型
+            if (!isToolPromptAdded()) {
+                addToolPrompt()
+            }
+
+            // 添加消息到模型
+            addMessagesToModel(state.messages)
+
+            // 生成回應
+            val responseMessage = generateResponse()
+            state.addMessage(responseMessage)
+
+            // 更新工具調用標誌和結構化回應
+            val hasToolCalls = responseMessage.hasToolCalls()
+            state.hasToolCalls = hasToolCalls
+
+            if (hasToolCalls) {
+                state.structuredLLMResponse = convertToStructured(responseMessage.content)
+            }
+
+            // 標記狀態完成（如果沒有工具調用）
+            return state.withCompleted(!hasToolCalls)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing state: ${e.message}", e)
+            return state.withError("Error processing state: ${e.message}").withCompleted(true)
+        }
+    }
+
+    /**
+     * 高層次方法：處理工具調用並返回更新後的狀態
+     */
+    suspend fun processToolCallsInState(state: GraphState): GraphState {
+        if (!state.hasToolCalls || state.structuredLLMResponse == null) {
+            return state.withError("No tool calls to process").withCompleted(true)
+        }
+
+        try {
+            val processingResult = processLLMResponse(state.structuredLLMResponse!!)
+
+            if (processingResult.toolResponses.isEmpty()) {
+                return state.setHasToolCalls(false).withCompleted(true)
+            }
+
+            // 處理工具響應
+            processingResult.toolResponses.forEach { response ->
+                state.addToolResponse(response)
+            }
+
+            // 重置工具調用標誌
+            state.setHasToolCalls(false)
+
+            // 檢查是否應終止流程
+            if (processingResult.shouldTerminateFlow()) {
+                return state.withCompleted(true)
+            }
+
+            return state
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing tool calls: ${e.message}", e)
+            return state.withError("Error processing tool calls: ${e.message}").withCompleted(true)
+        }
+    }
+
+    /**
+     * 添加消息到模型
+     */
+    private fun addMessagesToModel(messages: List<Message>) {
+        messages.forEach { message ->
+            when (message.role) {
+                MessageRole.SYSTEM -> addSystemMessage(message.content)
+                MessageRole.USER -> addUserMessage(message.content)
+                MessageRole.ASSISTANT -> addAssistantMessage(message.content)
+                MessageRole.TOOL -> addToolMessage(message.content)
+            }
+        }
+    }
+
+    /**
+     * 生成 LLM 響應並返回助手消息
+     */
+    private suspend fun generateResponse(): Message {
+        val responseText = StringBuilder()
+
+        // 收集 LLM 回應
+        getResponse().collect { chunk ->
+            responseText.append(chunk)
+        }
+
+        // 解析回應以檢測工具調用
+        val structuredResponse = convertToStructured(responseText.toString())
+
+        // 創建新的助手消息
+        return Message(
+            role = MessageRole.ASSISTANT,
+            content = responseText.toString(),
+            toolCalls = structuredResponse.toolCalls
+        )
+    }
+
+    init {
         runBlocking {
             init_model()
         }
     }
+
+    // 抽象方法，由子類實現
     abstract suspend fun init_model()
     abstract suspend fun close_model()
-
     abstract fun addSystemMessage(content: String)
-    abstract fun addUserMessage(content:String)
-    abstract fun addAssistantMessage(content:String)
-    abstract fun addToolMessage(content:String)
+    abstract fun addUserMessage(content: String)
+    abstract fun addAssistantMessage(content: String)
+    abstract fun addToolMessage(content: String)
     abstract fun getResponse(query: String? = null): Flow<String>
 }

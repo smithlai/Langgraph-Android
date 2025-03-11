@@ -4,7 +4,7 @@ import com.smith.lai.smithtoolcalls.langgraph.LangGraph
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.node.LLMNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
-import com.smith.lai.smithtoolcalls.langgraph.nodes.ToolNodes
+import com.smith.lai.smithtoolcalls.langgraph.node.ToolNode
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
 
@@ -27,7 +27,7 @@ object ConversationAgent {
         // 使用提供的創建函數或默認實現
         val llmNode = LLMNode<S>(model)
 
-        val toolNode =ToolNodes.createToolNode<S>(model)
+        val toolNode = ToolNode<S>(model)
 
         graphBuilder.addStartNode()
         graphBuilder.addEndNode()
