@@ -1,4 +1,4 @@
-package com.smith.lai.smithtoolcalls.tools.llm_adapter
+package com.smith.lai.smithtoolcalls.langgraph.model.adapter
 
 import com.smith.lai.smithtoolcalls.tools.BaseTool
 import com.smith.lai.smithtoolcalls.tools.FinishReason

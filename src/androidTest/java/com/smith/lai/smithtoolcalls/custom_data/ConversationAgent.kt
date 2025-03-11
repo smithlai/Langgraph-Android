@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.custom_data
 
 import com.smith.lai.smithtoolcalls.langgraph.LangGraph
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
+import com.smith.lai.smithtoolcalls.langgraph.node.LLMNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.nodes.ToolNodes
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
@@ -24,7 +25,7 @@ object ConversationAgent {
         val graphBuilder = LangGraph<S>()
 
         // 使用提供的創建函數或默認實現
-        val llmNode = LLMNodes.createLLMNode<S>(model)
+        val llmNode = LLMNode<S>(model)
 
         val toolNode =ToolNodes.createToolNode<S>(model)
 
@@ -55,24 +56,23 @@ object ConversationAgent {
     /**
      * 创建简化对话代理 - 不使用工具调用，仅对话
      */
-//    fun <S : GraphState> createExampleWithoutTools(
-//        model: SmolLM,
-//        toolRegistry: ToolRegistry
-//    ): LangGraph<S> {
-//        val graphBuilder = LangGraph<S>()
-//
-//        // 添加节点 - 直接使用新的節點類
-//        val llmNode = LLMNodes.createLLMNode<S>(model, toolRegistry)
-//
-//        graphBuilder.addStartNode()
-//        graphBuilder.addEndNode()
-//        graphBuilder.addNode("llm", llmNode)
-//
-//        // 添加边
-//        graphBuilder.addEdge(NodeNames.START, "llm")
-//        graphBuilder.addEdge("llm", NodeNames.END)
-//
-//        // 编译并返回图
-//        return graphBuilder.compile()
-//    }
+    fun <S : GraphState> createExampleWithoutTools(
+        model: LLMWithTools
+    ): LangGraph<S> {
+        val graphBuilder = LangGraph<S>()
+
+        // 添加节点 - 直接使用新的節點類
+        val llmNode = LLMNode<S>(model)
+
+        graphBuilder.addStartNode()
+        graphBuilder.addEndNode()
+        graphBuilder.addNode("llm", llmNode)
+
+        // 添加边
+        graphBuilder.addEdge(NodeNames.START, "llm")
+        graphBuilder.addEdge("llm", NodeNames.END)
+
+        // 编译并返回图
+        return graphBuilder.compile()
+    }
 }

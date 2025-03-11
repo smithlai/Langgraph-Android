@@ -11,7 +11,7 @@ import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
 import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponseType
-import com.smith.lai.smithtoolcalls.tools.llm_adapter.BaseLLMToolAdapter
+import com.smith.lai.smithtoolcalls.langgraph.model.adapter.BaseLLMToolAdapter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
@@ -26,7 +26,8 @@ import kotlin.reflect.full.findAnnotation
  * 帶有工具的LLM實現
  */
 abstract class LLMWithTools(
-    private val adapter: BaseLLMToolAdapter
+    private val adapter: BaseLLMToolAdapter,
+    private val TAG:String = "LLMWithTools"
 ) {
     private val tools = mutableMapOf<String, BaseTool<*, *>>()
     private val json = Json {
@@ -52,8 +53,11 @@ abstract class LLMWithTools(
         bind_tools(instance)
     }
 
-    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
-        toolClasses.forEach { bind_tools(it) }
+//    fun bind_tools(toolClasses: List<KClass<out BaseTool<*, *>>>) {
+//        toolClasses.forEach { bind_tools(it) }
+//    }
+    fun bind_tools(tools: List<BaseTool<*, *>>) {
+        tools.forEach { bind_tools(it) }
     }
 
 //    fun scanTools(packageName: String) {
@@ -96,7 +100,7 @@ abstract class LLMWithTools(
             // 使用 Translator 解析回應
             return adapter.parseResponse(llmResponse)
         } catch (e: Exception) {
-            Log.e("ToolRegistry", "Error converting LLM response: ${e.message}")
+            Log.e(TAG, "Error converting LLM response: ${e.message}")
             // 出現任何異常，返回原始文本作為內容
             return StructuredLLMResponse(
                 content = llmResponse,
@@ -114,6 +118,9 @@ abstract class LLMWithTools(
         val structuredResponse = convertToStructured(llmResponse)
         return processLLMResponse(structuredResponse)
     }
+    /**
+     * 處理LLM回應的整個流程：從原始回應到工具執行結果
+     */
     suspend fun processLLMResponse(structuredResponse: StructuredLLMResponse): ProcessingResult {
         try {
             // 將LLM回應轉換為結構化格式
@@ -140,7 +147,7 @@ abstract class LLMWithTools(
                 toolResponses = toolResponses
             )
         } catch (e: Exception) {
-            Log.e("ToolRegistry", "Error processing LLM response: ${e.message}")
+            Log.e(TAG, "Error processing LLM response: ${e.message}")
             // 處理異常，返回錯誤回應
             val errorResponse = StructuredLLMResponse(
                 content = "Error processing response: ${e.message}",

@@ -14,8 +14,8 @@ data class CalculatorInput(
 
 @ToolAnnotation(
     name = "calculator_add",
-    description = "Add two numbers together",
-    returnDescription = "The sum of the two numbers"
+    description = "Add two integers together",
+    returnDescription = "The sum of the two integers"
 )
 class CalculatorTool : BaseTool<CalculatorInput, Int>() {
     override suspend fun invoke(input: CalculatorInput): Int {
@@ -23,15 +23,10 @@ class CalculatorTool : BaseTool<CalculatorInput, Int>() {
         return result
     }
     override fun getFollowUpMetadata(response: Int): ToolFollowUpMetadata {
-        val customPrompt = """
-The tool returned: "$response". 
-Based on this information, continue answering the request.
-"""
-
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
             shouldTerminateFlow = false,
-            customFollowUpPrompt = customPrompt // 現在使用非空字串
+            customFollowUpPrompt = followup_prompt(response.toString())
         )
     }
 }

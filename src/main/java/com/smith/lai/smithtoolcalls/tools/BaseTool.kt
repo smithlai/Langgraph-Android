@@ -16,7 +16,12 @@ import kotlin.reflect.full.memberProperties
 
 abstract class BaseTool<TInput, TOutput> {
     abstract suspend fun invoke(input: TInput): TOutput
-
+    open fun followup_prompt(response: String):String {
+        return """
+The tool returned: "$response". 
+Based on this information, continue answering the request.
+"""
+    }
     open fun getFollowUpMetadata(response: TOutput): ToolFollowUpMetadata {
         // 預設行為：需要後續處理
         return ToolFollowUpMetadata(
