@@ -16,7 +16,6 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.Message
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -41,6 +40,8 @@ abstract class LLMWithTools(
 
     // 追踪工具提示是否已添加
     private var isToolPromptAdded = false
+    // 追踪初始訊息是否已添加
+    private var messagesInitialized = false
 
     fun bind_tools(tool: BaseTool<*, *>) {
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
@@ -238,19 +239,26 @@ abstract class LLMWithTools(
     /**
      * 高層次方法：處理狀態中的消息並返回更新後的狀態
      */
-    suspend fun processState(state: GraphState): GraphState {
+    suspend fun invoke(state: GraphState): GraphState {
         try {
             // 檢查錯誤或空消息列表
             if (state.error != null || state.messages.isEmpty()) {
                 return state.withCompleted(true)
             }
 
+            // 僅在初始時添加消息
+            //if (!messagesInitialized) {
+            //    Log.d(TAG, "Initializing messages for the first time")
+            //    addMessagesToModel(state.messages)
+            //    messagesInitialized = true
+            //}
             // 準備模型
             if (!isToolPromptAdded()) {
                 addToolPrompt()
             }
 
             // 添加消息到模型
+            // todo: 避免重複加入 messages
             addMessagesToModel(state.messages)
 
             // 生成回應
@@ -312,6 +320,7 @@ abstract class LLMWithTools(
      * 添加消息到模型
      */
     private fun addMessagesToModel(messages: List<Message>) {
+        // todo: tool messsage會分多筆出現。表示會被塞入多筆tool messages
         messages.forEach { message ->
             when (message.role) {
                 MessageRole.SYSTEM -> addSystemMessage(message.content)
@@ -319,6 +328,7 @@ abstract class LLMWithTools(
                 MessageRole.ASSISTANT -> addAssistantMessage(message.content)
                 MessageRole.TOOL -> addToolMessage(message.content)
             }
+            Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
         }
     }
 
@@ -332,7 +342,7 @@ abstract class LLMWithTools(
         getResponse().collect { chunk ->
             responseText.append(chunk)
         }
-
+        Log.i(TAG,"LLM Responses: $responseText")
         // 解析回應以檢測工具調用
         val structuredResponse = convertToStructured(responseText.toString())
 

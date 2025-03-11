@@ -8,6 +8,6 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
  */
 class LLMNode<S : GraphState>(private val model: LLMWithTools) : Node<S>() {
     override suspend fun invoke(state: S): S {
-        return model.processState(state) as S
+        return model.invoke(state) as S
     }
 }

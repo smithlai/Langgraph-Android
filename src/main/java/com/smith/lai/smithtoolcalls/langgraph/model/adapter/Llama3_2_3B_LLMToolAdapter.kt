@@ -261,7 +261,10 @@ Format your answer in a clear, human-readable way.
                                 value.equals("false", ignoreCase = true) -> "false"
                                 value.toIntOrNull() != null -> value
                                 value.toDoubleOrNull() != null -> value
-                                else -> "\"$value\"" // 字符串值加引號
+                                else -> {
+                                    val cleanValue = value.trim().replace("^['\"](.+)['\"]$".toRegex(), "$1")
+                                    "\"$cleanValue\""
+                                }
                             }
 
                             append("\"$key\": $processedValue")
