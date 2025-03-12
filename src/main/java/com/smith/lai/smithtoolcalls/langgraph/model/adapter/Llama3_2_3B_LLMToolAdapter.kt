@@ -122,7 +122,7 @@ Format your answer in a clear, human-readable way.
         return json.encodeToString(toolsArray)
     }
 
-    override fun parseResponse(response: String): StructuredLLMResponse {
+    override fun parseLLMResponse(response: String): StructuredLLMResponse {
         try {
             // 檢查是否是Llama 3.2格式的工具調用 [func_name(param1=value1, param2=value2)]
             val trimmedResponse = response.trim()

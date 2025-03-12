@@ -15,7 +15,7 @@ abstract class BaseLLMToolAdapter {
      * 解析LLM回應為結構化格式
      * 由具體的 Translator 實現類來處理不同模型的輸出格式
      */
-    abstract fun parseResponse(response: String): StructuredLLMResponse
+    abstract fun parseLLMResponse(response: String): StructuredLLMResponse
 
     /**
      * 解析工具調用格式

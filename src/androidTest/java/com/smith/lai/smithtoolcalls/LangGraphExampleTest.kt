@@ -91,7 +91,7 @@ class LangGraphExampleTest {
                 // 記錄和驗證結果
                 Log.d(DEBUG_TAG, "Execution completed in ${result.executionDuration()}ms")
                 Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-                val final_response = result.getLastAssistantMessage() ?: ""
+                val final_response = result.getLastAssistantMessage()?.content ?: ""
                 Log.d(DEBUG_TAG, "Final response (${final_response.length}): ${final_response}")
 
                 Assert.assertTrue("Execution should complete", result.completed)
@@ -101,8 +101,8 @@ class LangGraphExampleTest {
                 var usedCalculator = false
                 var usedWeather = false
 
-                for (response in result.toolResponses) {
-                    val output = response.output.toString()
+                for (response in result.getToolMessages()) {
+                    val output = response.toolResponse?.output.toString()
 
                     if (output == "562") {
                         usedCalculator = true
@@ -151,7 +151,7 @@ class LangGraphExampleTest {
                 // 驗證結果
                 Log.d(DEBUG_TAG, "Simple agent execution completed in ${result.executionDuration()}ms")
                 Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-                val final_response = result.getLastAssistantMessage() ?: ""
+                val final_response = result.getLastAssistantMessage()?.content ?: ""
                 Log.d(DEBUG_TAG, "Final response: ${final_response}")
 
                 Assert.assertTrue("Execution should complete", result.completed)
@@ -189,15 +189,15 @@ class LangGraphExampleTest {
                 Assert.assertTrue("First turn should complete", result.completed)
 
                 // 檢查是否使用了計算器
-                val usedCalculator = result.toolResponses.any {
-                    it.output.toString() == "59"
+                val usedCalculator = result.getToolMessages().any {
+                    it.toolResponse?.output == "59"
                 }
                 Assert.assertTrue("Should have used calculator", usedCalculator)
 
                 // 第二輪對話 - 繼續使用相同狀態
                 // todo: Failed to answer the correct answer.
                 result.setHasToolCalls(false) // 重置工具調用標誌
-                result.setStructuredLLMResponse(null) // 重置原始響應
+//                result.setStructuredLLMResponse(null) // 重置原始響應
                 result.withCompleted(false) // 重置完成標誌
                 result.addMessage(MessageRole.USER,"Now multiply that by 3")
 
@@ -207,9 +207,9 @@ class LangGraphExampleTest {
                 Assert.assertTrue("Second turn should complete", result.completed)
 
                 // 檢查第二輪回應
-                val finalResponse = result.getLastAssistantMessage() ?: ""
+                val finalResponse = result.getLastAssistantMessage()?.content ?: ""
                 Assert.assertTrue("Response should contain '177'",
-                    finalResponse.contains("177") || result.toolResponses.any { it.output.toString() == "177" })
+                    finalResponse.contains("177") || result.getToolMessages().any { it.content.toString() == "177" })
 
             } catch (e: Exception) {
                 Log.e(DEBUG_TAG, "Test failed", e)
@@ -243,7 +243,7 @@ class LangGraphExampleTest {
                 // 驗證結果
                 Log.d(DEBUG_TAG, "Simple agent execution completed in ${result.executionDuration()}ms")
                 Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-                val final_response = result.getLastAssistantMessage() ?: ""
+                val final_response = result.getLastAssistantMessage()?.content ?: ""
                 Log.d(DEBUG_TAG, "Final response: ${final_response}")
 
                 Assert.assertTrue("Execution should complete", result.completed)

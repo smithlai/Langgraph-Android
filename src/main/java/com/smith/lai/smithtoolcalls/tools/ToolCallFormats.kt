@@ -7,7 +7,8 @@ import kotlinx.serialization.Serializable
 data class ToolCallInfo(
     val id: String,
     val type: String = "function",
-    val function: FunctionCall
+    val function: FunctionCall,
+    var executed: Boolean = false	//todo
 )
 
 @Serializable

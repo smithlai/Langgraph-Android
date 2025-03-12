@@ -17,9 +17,7 @@ abstract class GraphState {
     val messages: MutableList<Message> = mutableListOf()
 
     // 工具相關狀態
-    val toolResponses: MutableList<ToolResponse<*>> = mutableListOf()
     var hasToolCalls: Boolean = false
-    var structuredLLMResponse: StructuredLLMResponse? = null
 
     // 性能監控
     private val startTime: Long = System.currentTimeMillis()
@@ -71,19 +69,6 @@ abstract class GraphState {
     }
 
     /**
-     * 添加工具響應並創建對應的 TOOL 角色消息
-     */
-    fun addToolResponse(response: ToolResponse<*>): GraphState {
-        toolResponses.add(response)
-
-        // 創建 TOOL 消息
-        val toolMessage = Message.fromToolResponse(response)
-        messages.add(toolMessage)
-
-        return this
-    }
-
-    /**
      * 設置工具調用標誌
      */
     fun setHasToolCalls(value: Boolean): GraphState {
@@ -91,19 +76,12 @@ abstract class GraphState {
         return this
     }
 
-    /**
-     * 設置結構化 LLM 響應
-     */
-    fun setStructuredLLMResponse(response: StructuredLLMResponse?): GraphState {
-        structuredLLMResponse = response
-        return this
-    }
 
     /**
      * 獲取最後一條助手消息內容
      */
-    fun getLastAssistantMessage(): String? {
-        return getLastMessageByRole(MessageRole.ASSISTANT)?.content
+    fun getLastAssistantMessage(): Message? {
+        return getLastMessageByRole(MessageRole.ASSISTANT)
     }
 
     /**
@@ -128,6 +106,23 @@ abstract class GraphState {
     }
 
     /**
+     * 獲取所有工具響應消息
+     * todo: for debug
+     */
+    fun getToolMessages(): List<Message> {
+        return getMessagesByRole(MessageRole.TOOL)
+    }
+
+    /**
+     * 獲取所有工具響應對象
+     * todo: for debug
+     */
+    fun getToolResponses(): List<ToolResponse<*>> {
+        return getToolMessages()
+            .mapNotNull { it.toolResponse }
+    }
+
+    /**
      * 計算執行持續時間（毫秒）
      */
     fun executionDuration(): Long = System.currentTimeMillis() - startTime
@@ -135,23 +130,23 @@ abstract class GraphState {
     /**
      * 獲取消息的結構化表示（用於 API 調用或序列化）
      */
-    fun getFormattedMessages(): List<Map<String, Any>> {
-        return messages.map { message ->
-            buildMap {
-                put("role", message.role.toString().lowercase())
-                put("content", message.content)
-
-                // 處理工具調用
-                message.toolCalls?.let { put("tool_calls", it as Any) }
-
-                // 處理工具輸出
-                message.toolOutput?.let { put("tool_output", it) }
-
-                // 處理元數據
-                message.metadata?.forEach { (key, value) ->
-                    put(key, value)
-                }
-            }
-        }
-    }
+//    fun getFormattedMessages(): List<Map<String, Any>> {
+//        return messages.map { message ->
+//            buildMap {
+//                put("role", message.role.toString().lowercase())
+//                put("content", message.content)
+//
+//                // 處理工具調用
+//                message.toolCalls?.let { put("tool_calls", it as Any) }
+//
+//                // 處理工具輸出
+//                message.toolOutput?.let { put("tool_output", it) }
+//
+//                // 處理元數據
+//                message.metadata?.forEach { (key, value) ->
+//                    put(key, value)
+//                }
+//            }
+//        }
+//    }
 }

@@ -106,7 +106,7 @@ abstract class LLMWithTools(
      */
     fun convertToStructured(llmResponse: String): StructuredLLMResponse {
         try {
-            return adapter.parseResponse(llmResponse)
+            return adapter.parseLLMResponse(llmResponse)
         } catch (e: Exception) {
             Log.e(TAG, "Error converting LLM response: ${e.message}")
             return StructuredLLMResponse(
@@ -245,21 +245,20 @@ abstract class LLMWithTools(
             if (state.error != null || state.messages.isEmpty()) {
                 return state.withCompleted(true)
             }
-
-            // 僅在初始時添加消息
-            //if (!messagesInitialized) {
-            //    Log.d(TAG, "Initializing messages for the first time")
-            //    addMessagesToModel(state.messages)
-            //    messagesInitialized = true
-            //}
             // 準備模型
             if (!isToolPromptAdded()) {
                 addToolPrompt()
             }
+            // 僅在初始時添加消息
+            if (!messagesInitialized) {
+                Log.d(TAG, "Initializing messages for the first time")
+                addMessagesToModel(state.messages)
+                messagesInitialized = true
+            }
 
             // 添加消息到模型
             // todo: 避免重複加入 messages
-            addMessagesToModel(state.messages)
+//            addMessagesToModel(state.messages)
 
             // 生成回應
             val responseMessage = generateResponse()
@@ -269,9 +268,6 @@ abstract class LLMWithTools(
             val hasToolCalls = responseMessage.hasToolCalls()
             state.hasToolCalls = hasToolCalls
 
-            if (hasToolCalls) {
-                state.structuredLLMResponse = convertToStructured(responseMessage.content)
-            }
 
             // 標記狀態完成（如果沒有工具調用）
             return state.withCompleted(!hasToolCalls)
@@ -285,12 +281,14 @@ abstract class LLMWithTools(
      * 高層次方法：處理工具調用並返回更新後的狀態
      */
     suspend fun processToolCallsInState(state: GraphState): GraphState {
-        if (!state.hasToolCalls || state.structuredLLMResponse == null) {
+
+        val llmMessage = state.getLastAssistantMessage()
+        if (llmMessage?.structuredLLMResponse?.hasToolCalls() != true) {
             return state.withError("No tool calls to process").withCompleted(true)
         }
 
         try {
-            val processingResult = processLLMResponse(state.structuredLLMResponse!!)
+            val processingResult = processLLMResponse(llmMessage.structuredLLMResponse!!)
 
             if (processingResult.toolResponses.isEmpty()) {
                 return state.setHasToolCalls(false).withCompleted(true)
@@ -298,7 +296,10 @@ abstract class LLMWithTools(
 
             // 處理工具響應
             processingResult.toolResponses.forEach { response ->
-                state.addToolResponse(response)
+                // 創建 TOOL 消息,並加入到messages跟model
+                val toolMessage = Message.fromToolResponse(response)
+                state.messages.add(toolMessage)
+                addToolMessage(toolMessage.content)
             }
 
             // 重置工具調用標誌
@@ -350,7 +351,7 @@ abstract class LLMWithTools(
         return Message(
             role = MessageRole.ASSISTANT,
             content = responseText.toString(),
-            toolCalls = structuredResponse.toolCalls
+            structuredLLMResponse = structuredResponse
         )
     }
 

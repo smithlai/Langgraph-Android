@@ -1,5 +1,6 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
+import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 import java.util.UUID
@@ -21,10 +22,12 @@ data class Message(
     val id: String = UUID.randomUUID().toString(),
     val role: MessageRole,
     val content: String,
+    var structuredLLMResponse: StructuredLLMResponse? = null,
     val timestamp: Long = System.currentTimeMillis(),
     // 新增屬性以支援工具調用和工具回應
-    val toolCalls: List<ToolCallInfo>? = null,
-    val toolOutput: Any? = null,
+//    val toolCalls: List<ToolCallInfo>? = null,  // if any tool_calls (this usually comes from llm response)
+//    val toolOutput: Any? = null,
+    val toolResponse: ToolResponse<*>? = null,  // if any tool_node, this comes from tool node (or processLLMResponse())
     val metadata: Map<String, Any>? = null
 ) {
     constructor(role: MessageRole, content: String) : this(
@@ -34,7 +37,7 @@ data class Message(
     /**
      * 判斷此消息是否包含工具調用
      */
-    fun hasToolCalls(): Boolean = toolCalls != null && toolCalls.isNotEmpty()
+    fun hasToolCalls(): Boolean = structuredLLMResponse?.hasToolCalls() == true
 
     companion object {
         /**
@@ -48,7 +51,8 @@ data class Message(
                 } else {
                     "The tool returned: \"${toolResponse.output}\". Based on this information, continue answering the request."
                 },
-                toolOutput = toolResponse.output,
+//                toolOutput = toolResponse.output,
+                toolResponse = toolResponse,  // Store the complete ToolResponse
                 metadata = mapOf(
                     "toolId" to toolResponse.id,
                     "toolType" to toolResponse.type.toString(),
