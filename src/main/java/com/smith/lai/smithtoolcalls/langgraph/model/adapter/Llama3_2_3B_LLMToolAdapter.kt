@@ -133,6 +133,7 @@ Format your answer in a clear, human-readable way.
 
                 if (toolCalls.isNotEmpty()) {
                     return StructuredLLMResponse(
+                        content = trimmedResponse,
                         toolCalls = toolCalls,
                         metadata = ResponseMetadata(
                             tokenUsage = estimateTokenUsage(trimmedResponse),

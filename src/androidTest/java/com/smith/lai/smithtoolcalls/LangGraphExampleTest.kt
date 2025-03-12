@@ -196,7 +196,6 @@ class LangGraphExampleTest {
 
                 // 第二輪對話 - 繼續使用相同狀態
                 // todo: Failed to answer the correct answer.
-                result.setHasToolCalls(false) // 重置工具調用標誌
 //                result.setStructuredLLMResponse(null) // 重置原始響應
                 result.withCompleted(false) // 重置完成標誌
                 result.addMessage(MessageRole.USER,"Now multiply that by 3")

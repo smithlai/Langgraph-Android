@@ -22,12 +22,10 @@ data class Message(
     val id: String = UUID.randomUUID().toString(),
     val role: MessageRole,
     val content: String,
-    var structuredLLMResponse: StructuredLLMResponse? = null,
+    val structuredLLMResponse: StructuredLLMResponse? = null, // if any tool_calls (this usually comes from llm response)
     val timestamp: Long = System.currentTimeMillis(),
-    // 新增屬性以支援工具調用和工具回應
-//    val toolCalls: List<ToolCallInfo>? = null,  // if any tool_calls (this usually comes from llm response)
-//    val toolOutput: Any? = null,
     val toolResponse: ToolResponse<*>? = null,  // if any tool_node, this comes from tool node (or processLLMResponse())
+    var queueing: Boolean = false, // if need to send to model
     val metadata: Map<String, Any>? = null
 ) {
     constructor(role: MessageRole, content: String) : this(

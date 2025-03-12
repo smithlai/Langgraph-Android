@@ -9,7 +9,7 @@ object StateConditions {
      */
     fun <S> hasToolCalls(): (S) -> Boolean = { state ->
         when (state) {
-            is GraphState -> state.hasToolCalls
+            is GraphState -> state.getLastToolCallsMessage() != null
             else -> false
         }
     }

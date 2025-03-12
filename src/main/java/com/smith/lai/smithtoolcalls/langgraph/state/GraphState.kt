@@ -1,5 +1,6 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
+import android.util.Log
 import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.tools.ToolResponse
 
@@ -16,8 +17,6 @@ abstract class GraphState {
     // 核心狀態：消息歷史
     val messages: MutableList<Message> = mutableListOf()
 
-    // 工具相關狀態
-    var hasToolCalls: Boolean = false
 
     // 性能監控
     private val startTime: Long = System.currentTimeMillis()
@@ -60,19 +59,11 @@ abstract class GraphState {
     fun addMessage(message: Message): GraphState {
         messages.add(message)
 
-        // 如果是助手消息，檢查是否包含工具調用
-        if (message.role == MessageRole.ASSISTANT && message.hasToolCalls()) {
-            hasToolCalls = true
+        if (message.role == MessageRole.USER || message.role == MessageRole.TOOL) {
+            //如果是USER or TOOL 我們將加入model中
+            message.queueing = true
         }
 
-        return this
-    }
-
-    /**
-     * 設置工具調用標誌
-     */
-    fun setHasToolCalls(value: Boolean): GraphState {
-        hasToolCalls = value
         return this
     }
 
@@ -83,7 +74,9 @@ abstract class GraphState {
     fun getLastAssistantMessage(): Message? {
         return getLastMessageByRole(MessageRole.ASSISTANT)
     }
-
+    fun getLastToolCallsMessage(): Message? {
+        return getLastMessageByRole(MessageRole.ASSISTANT).takeIf { it?.hasToolCalls() == true}
+    }
     /**
      * 獲取最後一條用戶消息內容
      */

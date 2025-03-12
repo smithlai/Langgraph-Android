@@ -88,9 +88,9 @@ abstract class LLMWithTools(
     /**
      * 檢查工具提示是否已添加
      */
-    fun isToolPromptAdded(): Boolean {
-        return isToolPromptAdded
-    }
+//    fun isToolPromptAdded(): Boolean {
+//        return isToolPromptAdded
+//    }
 
     /**
      * 生成調用ID
@@ -183,6 +183,9 @@ abstract class LLMWithTools(
         val toolResponses = mutableListOf<ToolResponse<*>>()
 
         for (toolCall in toolCalls) {
+            if (toolCall.executed)
+                continue
+            toolCall.executed = true
             val tool = getTool(toolCall.function.name)
             if (tool == null) {
                 // 處理找不到工具的情況
@@ -246,19 +249,12 @@ abstract class LLMWithTools(
                 return state.withCompleted(true)
             }
             // 準備模型
-            if (!isToolPromptAdded()) {
+            if (!isToolPromptAdded) {
                 addToolPrompt()
             }
-            // 僅在初始時添加消息
-            if (!messagesInitialized) {
-                Log.d(TAG, "Initializing messages for the first time")
-                addMessagesToModel(state.messages)
-                messagesInitialized = true
-            }
 
-            // 添加消息到模型
-            // todo: 避免重複加入 messages
-//            addMessagesToModel(state.messages)
+            // 將queueing中的訊息添加消息到模型
+            addMessagesToModel(state.messages)
 
             // 生成回應
             val responseMessage = generateResponse()
@@ -266,7 +262,7 @@ abstract class LLMWithTools(
 
             // 更新工具調用標誌和結構化回應
             val hasToolCalls = responseMessage.hasToolCalls()
-            state.hasToolCalls = hasToolCalls
+//            state.hasToolCalls = hasToolCalls
 
 
             // 標記狀態完成（如果沒有工具調用）
@@ -281,17 +277,16 @@ abstract class LLMWithTools(
      * 高層次方法：處理工具調用並返回更新後的狀態
      */
     suspend fun processToolCallsInState(state: GraphState): GraphState {
-
-        val llmMessage = state.getLastAssistantMessage()
-        if (llmMessage?.structuredLLMResponse?.hasToolCalls() != true) {
+        val llmMessageWithToolCall = state.getLastToolCallsMessage()
+        if (llmMessageWithToolCall?.hasToolCalls() != true) {
             return state.withError("No tool calls to process").withCompleted(true)
         }
 
         try {
-            val processingResult = processLLMResponse(llmMessage.structuredLLMResponse!!)
+            val processingResult = processLLMResponse(llmMessageWithToolCall!!.structuredLLMResponse!!)
 
             if (processingResult.toolResponses.isEmpty()) {
-                return state.setHasToolCalls(false).withCompleted(true)
+                return state.withCompleted(true)
             }
 
             // 處理工具響應
@@ -303,7 +298,7 @@ abstract class LLMWithTools(
             }
 
             // 重置工具調用標誌
-            state.setHasToolCalls(false)
+//            state.setHasToolCalls(false)
 
             // 檢查是否應終止流程
             if (processingResult.shouldTerminateFlow()) {
@@ -321,18 +316,19 @@ abstract class LLMWithTools(
      * 添加消息到模型
      */
     private fun addMessagesToModel(messages: List<Message>) {
-        // todo: tool messsage會分多筆出現。表示會被塞入多筆tool messages
         messages.forEach { message ->
-            when (message.role) {
-                MessageRole.SYSTEM -> addSystemMessage(message.content)
-                MessageRole.USER -> addUserMessage(message.content)
-                MessageRole.ASSISTANT -> addAssistantMessage(message.content)
-                MessageRole.TOOL -> addToolMessage(message.content)
+            if (message.queueing) { // 只有當queueing為true時才添加消息到模型
+                message.queueing = false
+                when (message.role) {
+                    MessageRole.SYSTEM -> addSystemMessage(message.content)
+                    MessageRole.USER -> addUserMessage(message.content)
+                    MessageRole.ASSISTANT -> addAssistantMessage(message.content)
+                    MessageRole.TOOL -> addToolMessage(message.content)
+                }
+                Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
             }
-            Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
         }
     }
-
     /**
      * 生成 LLM 響應並返回助手消息
      */

@@ -74,12 +74,8 @@ data class StructuredLLMResponse(
     /**
      * 檢查這個回應是否包含工具調用
      */
-    fun hasToolCalls(): Boolean = toolCalls.isNotEmpty()
+    fun hasToolCalls(): Boolean = toolCalls?.any{ it.executed == false} == true
 
-    /**
-     * 檢查這個回應是否是直接文本回應
-     */
-    fun isDirectResponse(): Boolean = content.isNotEmpty() && !hasToolCalls()
 }
 
 /**
