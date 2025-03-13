@@ -3,6 +3,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
 import com.smith.lai.smithtoolcalls.tools.BaseTool
 import com.smith.lai.smithtoolcalls.tools.FinishReason
 import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
@@ -77,24 +78,31 @@ class ToolNode<S : GraphState>(
     /**
      * 核心處理邏輯 - 只執行工具，不接觸狀態
      */
-    override suspend fun invoke(state: S): Any? {
+    override suspend fun invoke(state: S): List<Message> {
         Log.d(TAG, "Executing tools")
 
         // 獲取最後一條包含工具調用的消息
-        val messageWithToolCall = state.getLastToolCallsMessage() ?: return null
+        val messageWithToolCall = state.getLastToolCallsMessage() ?: return listOf()
 
         try {
             // 從消息中獲取結構化的LLM回應
-            val structuredResponse = messageWithToolCall.structuredLLMResponse ?: return null
+            val structuredLLMResponse = messageWithToolCall.structuredLLMResponse ?: return listOf()
 
             // 處理工具調用
-            val toolResponses = executeTools(structuredResponse.toolCalls)
+            val toolResponses = executeTools(structuredLLMResponse.toolCalls)
+
+            val messageList = mutableListOf<Message>()
+            toolResponses.forEach { response ->
+                Log.d(TAG, "添加工具響應: ${response.type}")
+                val toolMessage = Message.fromToolResponse(response)
+                messageList.add(toolMessage)
+            }
 
             // 返回工具響應列表
-            return toolResponses
+            return messageList
         } catch (e: Exception) {
             Log.e(TAG, "Error processing tool calls: ${e.message}", e)
-            return null
+            return listOf()
         }
     }
 

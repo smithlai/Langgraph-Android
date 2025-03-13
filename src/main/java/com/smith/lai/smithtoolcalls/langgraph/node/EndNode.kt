@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
 
 /**
  * 結束節點實現
@@ -14,7 +15,7 @@ class EndNode<S : GraphState>(
     /**
      * 核心處理邏輯
      */
-    override suspend fun invoke(state: S): Any? {
+    override suspend fun invoke(state: S): List<Message> {
         // 基本日誌
         Log.d(logTag, "End node: finalizing execution after ${state.stepCount} steps")
 
@@ -29,7 +30,7 @@ class EndNode<S : GraphState>(
         }
 
         // 返回特殊標記，讓外層可以識別這是結束節點
-        return "END"
+        return listOf()
     }
 
     companion object {

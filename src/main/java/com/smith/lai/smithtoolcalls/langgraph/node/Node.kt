@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
 
 /**
  * 節點接口 - 定義圖中節點的基本行為
@@ -25,7 +26,7 @@ abstract class Node<S : GraphState> {
      * 執行節點處理流程 - 框架內部使用
      * 包含錯誤處理，將節點輸出轉發給外部
      */
-    suspend fun process(state: S): Any? {
+    suspend fun process(state: S): List<Message> {
         try {
             // 執行核心處理邏輯
             Log.d(TAG, "${this.javaClass.simpleName}: 開始處理")
@@ -38,7 +39,7 @@ abstract class Node<S : GraphState> {
         } catch (e: Exception) {
             // 處理異常
             Log.e(TAG, "${this.javaClass.simpleName}: 處理出錯: ${e.message}", e)
-            return null
+            return listOf()
         }
     }
 
@@ -46,5 +47,5 @@ abstract class Node<S : GraphState> {
      * 核心處理邏輯 - 由子類實現
      * 子類只需關注核心業務邏輯，不接觸狀態
      */
-    protected abstract suspend fun invoke(state: S): Any?
+    protected abstract suspend fun invoke(state: S): List<Message>
 }

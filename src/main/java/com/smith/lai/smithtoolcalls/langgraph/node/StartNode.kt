@@ -2,6 +2,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
 
 /**
  * 開始節點實現
@@ -13,10 +14,9 @@ class StartNode<S : GraphState>(
     /**
      * 核心處理邏輯
      */
-    override suspend fun invoke(state: S): Any? {
+    override suspend fun invoke(state: S): List<Message> {
         Log.d(logTag, "Start node: initializing graph execution")
-        // the beginning 沒有特定輸出
-        return null
+        return listOf()
     }
 
     companion object {

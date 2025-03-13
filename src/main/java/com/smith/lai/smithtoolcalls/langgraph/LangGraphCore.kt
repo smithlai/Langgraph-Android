@@ -139,76 +139,28 @@ class LangGraph<S: GraphState>(
                 val nodeDuration = System.currentTimeMillis() - nodeStartTime
 
                 Log.d(logTag, "步驟 ${state.stepCount}: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
-
-                // 處理節點輸出並更新狀態 - 基於輸出內容而非節點名稱
-                when (nodeOutput) {
+                nodeOutput.forEach { message ->
                     // LLM 節點輸出消息
-                    is Message -> {
-                        Log.d(logTag, "處理輸出: Message - ${nodeOutput.content.take(50)}...")
-
-                        // 添加消息到狀態
-                        state.addMessage(nodeOutput)
-
+                    if (message.structuredLLMResponse != null){
+                        Log.d(logTag, "處理輸出: Message - ${message.content.take(50)}...")
+                        state.addMessage(message)
                         // 檢查是否有工具調用
-                        if (nodeOutput.structuredLLMResponse != null && nodeOutput.hasToolCalls()) {
-                            Log.d(logTag, "消息包含工具調用，繼續流程")
-                        } else {
-                            state.withCompleted(true)
-                            Log.d(logTag, "消息不包含工具調用，標記流程完成")
-                        }
-                    }
-
-                    // 檢查是否為List<ToolResponse<*>>
-                    // 工具節點輸出執行結果
-                    is List<*> -> {
-                        if (nodeOutput.isNotEmpty() && nodeOutput.all { it is ToolResponse<*> }) {
-                            Log.d(logTag, "處理輸出: ToolResponse 列表 - ${nodeOutput.size} 個響應")
-
-                            // 是工具響應列表
-                            var shouldTerminate = false
-
-                            @Suppress("UNCHECKED_CAST")
-                            (nodeOutput as List<ToolResponse<*>>).forEach { response ->
-                                Log.d(logTag, "添加工具響應: ${response.type}")
-                                val toolMessage = Message.fromToolResponse(response)
-                                state.addMessage(toolMessage)
-
-                                // 檢查工具是否要求終止流程
-                                if (response.followUpMetadata.shouldTerminateFlow) {
-                                    shouldTerminate = true
-                                    Log.d(logTag, "工具要求終止流程")
-                                }
-                            }
-
-                            if (shouldTerminate) {
-                                state.withCompleted(true)
-                                Log.d(logTag, "根據工具響應，標記流程完成")
-                            }
-                        } else {
-                            Log.d(logTag, "處理輸出: 普通列表 - ${nodeOutput.size} 個項目")
-                        }
-                    }
-
-                    // 終止節點可能返回特定標記
-                    is String -> {
-                        if (nodeOutput == "END" || currentNodeName == endNodeName) {
-                            Log.d(logTag, "檢測到終止標記，標記流程完成")
-                            state.withCompleted(true)
-                        } else {
-                            Log.d(logTag, "處理字符串輸出: $nodeOutput")
-                        }
-                    }
-
-                    // 其他類型輸出
-                    else -> {
-                        if (currentNodeName == endNodeName) {
-                            Log.d(logTag, "終止節點執行完成，標記流程完成")
-                            state.withCompleted(true)
-                        } else {
-                            Log.d(logTag, "未知輸出類型或空輸出")
-                        }
+//                        if (message.hasToolCalls()) {
+//                            Log.d(logTag, "消息包含工具調用，繼續流程")
+//                        } else {
+//                            Log.d(logTag, "消息不包含工具調用，標記流程完成")
+//                            state.withCompleted(true)
+//                        }
+                    }else if(message.toolResponse != null){
+                        Log.d(logTag, "處理輸出: ToolResponse - ${message.toolResponse.output}")
+                        state.addMessage(message)
                     }
                 }
+                if (currentNodeName == endNodeName) {
+                    Log.d(logTag, "終止節點執行完成，標記流程完成")
+                    state.withCompleted(true)
+                }
+
 
             } catch (e: Exception) {
                 // 處理節點執行異常

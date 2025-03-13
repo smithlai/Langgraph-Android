@@ -3,6 +3,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
 
 /**
  * LLM 節點 - 處理對LLM的調用
@@ -14,10 +15,10 @@ class LLMNode<S : GraphState>(protected val model: LLMWithTools) : Node<S>() {
     /**
      * 核心處理邏輯 - 只專注於使用LLM生成回應
      */
-    override suspend fun invoke(state: S): Any? {
+    override suspend fun invoke(state: S): List<Message> {
         Log.d(TAG, "Generating LLM response")
 
         // 使用LLM處理消息並生成回應
-        return model.invoke(state.messages)
+        return listOf(model.invoke(state.messages))
     }
 }
