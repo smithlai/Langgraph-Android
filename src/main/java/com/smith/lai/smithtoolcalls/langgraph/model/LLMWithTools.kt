@@ -86,13 +86,6 @@ abstract class LLMWithTools(
     }
 
     /**
-     * 檢查工具提示是否已添加
-     */
-//    fun isToolPromptAdded(): Boolean {
-//        return isToolPromptAdded
-//    }
-
-    /**
      * 生成調用ID
      */
     fun generateCallId(): String {
@@ -240,82 +233,100 @@ abstract class LLMWithTools(
     }
 
     /**
-     * 高層次方法：處理狀態中的消息並返回更新後的狀態
+     * 處理消息列表，生成回應
+     * 接收消息列表，處理它們並返回助手的回應消息
+     *
+     * @param messages 要處理的消息列表
+     * @return 助手的回應消息
      */
-    suspend fun invoke(state: GraphState): GraphState {
+    suspend fun invoke(messages: List<Message>): Message {
         try {
-            // 檢查錯誤或空消息列表
-            if (state.error != null || state.messages.isEmpty()) {
-                return state.withCompleted(true)
-            }
-            // 準備模型
+            // 準備模型 - 確保工具提示已添加
             if (!isToolPromptAdded) {
                 addToolPrompt()
             }
 
-            // 將queueing中的訊息添加消息到模型
-            addMessagesToModel(state.messages)
+            // 重置現有的消息狀態（如果需要）
+//            resetModelMessages()
+
+            // 將消息添加到模型
+            addMessagesToModel(messages)
 
             // 生成回應
-            val responseMessage = generateResponse()
-            state.addMessage(responseMessage)
+            val responseText = StringBuilder()
+            getResponse().collect { chunk ->
+                responseText.append(chunk)
+            }
+            Log.i(TAG, "LLM Responses: $responseText")
 
-            // 更新工具調用標誌和結構化回應
-            val hasToolCalls = responseMessage.hasToolCalls()
-//            state.hasToolCalls = hasToolCalls
+            // 解析回應
+            val structuredResponse = convertToStructured(responseText.toString())
 
-
-            // 標記狀態完成（如果沒有工具調用）
-            return state.withCompleted(!hasToolCalls)
+            // 創建並返回助手消息
+            return Message(
+                role = MessageRole.ASSISTANT,
+                content = responseText.toString(),
+                structuredLLMResponse = structuredResponse
+            )
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing state: ${e.message}", e)
-            return state.withError("Error processing state: ${e.message}").withCompleted(true)
+            Log.e(TAG, "Error generating response: ${e.message}", e)
+            return Message(
+                role = MessageRole.ASSISTANT,
+                content = "Error generating response: ${e.message}"
+            )
         }
     }
 
     /**
-     * 高層次方法：處理工具調用並返回更新後的狀態
+     * 重置模型的消息狀態
+     * 根據具體的LLM實現，可能需要清除先前的消息
      */
-    suspend fun processToolCallsInState(state: GraphState): GraphState {
-        val llmMessageWithToolCall = state.getLastToolCallsMessage()
-        if (llmMessageWithToolCall?.hasToolCalls() != true) {
-            return state.withError("No tool calls to process").withCompleted(true)
+    open fun resetModelMessages() {
+        // 預設實現為空，子類可以根據需要覆蓋此方法
+    }
+
+    /**
+     * 處理帶有工具調用的消息，並返回工具執行結果消息
+     *
+     * @param messageWithToolCall 包含工具調用的消息
+     * @param previousMessages 對話歷史消息（可選）
+     * @return 工具回應消息列表
+     */
+    suspend fun processToolCalls(messageWithToolCall: Message, previousMessages: List<Message> = emptyList()): List<Message> {
+        if (!messageWithToolCall.hasToolCalls()) {
+            return listOf(Message(
+                role = MessageRole.ASSISTANT,
+                content = "No tool calls to process"
+            ))
         }
 
         try {
-            val processingResult = processLLMResponse(llmMessageWithToolCall!!.structuredLLMResponse!!)
+            val processingResult = processLLMResponse(messageWithToolCall.structuredLLMResponse!!)
 
             if (processingResult.toolResponses.isEmpty()) {
-                return state.withCompleted(true)
+                return emptyList()
             }
 
-            // 處理工具響應
-            processingResult.toolResponses.forEach { response ->
-                // 創建 TOOL 消息,並加入到messages跟model
-                val toolMessage = Message.fromToolResponse(response)
-                state.messages.add(toolMessage)
-                addToolMessage(toolMessage.content)
+            // 將所有工具調用結果轉換為消息
+            return processingResult.toolResponses.map { response ->
+                Message.fromToolResponse(response)
             }
 
-            // 重置工具調用標誌
-//            state.setHasToolCalls(false)
-
-            // 檢查是否應終止流程
-            if (processingResult.shouldTerminateFlow()) {
-                return state.withCompleted(true)
-            }
-
-            return state
         } catch (e: Exception) {
             Log.e(TAG, "Error processing tool calls: ${e.message}", e)
-            return state.withError("Error processing tool calls: ${e.message}").withCompleted(true)
+            return listOf(Message(
+                role = MessageRole.ASSISTANT,
+                content = "Error processing tool calls: ${e.message}"
+            ))
         }
     }
 
+
+
     /**
-     * 添加消息到模型
+     * 添加消息到模型 - 用於處理工具對話
      */
-    private fun addMessagesToModel(messages: List<Message>) {
+    fun addMessagesToModel(messages: List<Message>) {
         messages.forEach { message ->
             if (message.queueing) { // 只有當queueing為true時才添加消息到模型
                 message.queueing = false
@@ -328,27 +339,6 @@ abstract class LLMWithTools(
                 Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
             }
         }
-    }
-    /**
-     * 生成 LLM 響應並返回助手消息
-     */
-    private suspend fun generateResponse(): Message {
-        val responseText = StringBuilder()
-
-        // 收集 LLM 回應
-        getResponse().collect { chunk ->
-            responseText.append(chunk)
-        }
-        Log.i(TAG,"LLM Responses: $responseText")
-        // 解析回應以檢測工具調用
-        val structuredResponse = convertToStructured(responseText.toString())
-
-        // 創建新的助手消息
-        return Message(
-            role = MessageRole.ASSISTANT,
-            content = responseText.toString(),
-            structuredLLMResponse = structuredResponse
-        )
     }
 
     init {
