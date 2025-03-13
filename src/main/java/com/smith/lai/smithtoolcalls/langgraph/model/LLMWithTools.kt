@@ -1,13 +1,12 @@
 package com.smith.lai.smithtoolcalls.langgraph.model
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tools.FinishReason
-import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
-import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
+import com.smith.lai.smithtoolcalls.langgraph.response.FinishReason
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolAnnotation
 import com.smith.lai.smithtoolcalls.langgraph.model.adapter.BaseLLMToolAdapter
-import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.response.LLMResponseMetadata
+import com.smith.lai.smithtoolcalls.langgraph.response.StructuredLLMResponse
 import com.smith.lai.smithtoolcalls.langgraph.state.Message
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import kotlinx.coroutines.flow.Flow
@@ -92,7 +91,7 @@ abstract class LLMWithTools(
             Log.e(TAG, "Error converting LLM response: ${e.message}")
             return StructuredLLMResponse(
                 content = llmResponse,
-                metadata = ResponseMetadata(
+                metadata = LLMResponseMetadata(
                     finishReason = FinishReason.ERROR.value
                 )
             )

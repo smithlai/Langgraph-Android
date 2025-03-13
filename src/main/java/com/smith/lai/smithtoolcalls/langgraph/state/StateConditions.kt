@@ -65,41 +65,6 @@ object StateConditions {
     }
 
     /**
-     * 檢查是否應繼續執行LLM-Tool循環
-     * 如果沒有工具調用或已標記為完成，則不繼續
-     */
-    fun <S> shouldContinueLLMToolLoop(): (S) -> Boolean = { state ->
-        when (state) {
-            is GraphState -> {
-                val lastMessage = state.getLastAssistantMessage()
-                val hasToolCalls = lastMessage?.hasToolCalls() == true
-                val isNotComplete = !state.completed
-
-                val shouldContinue = hasToolCalls && isNotComplete
-                Log.d(TAG, "狀態檢查: 是否繼續LLM-Tool循環 = $shouldContinue")
-
-                shouldContinue
-            }
-            else -> false
-        }
-    }
-
-    /**
-     * 強制標記狀態為已完成
-     * 用於確保狀態在某些條件下被標記為完成
-     */
-    fun <S> markAsComplete(): (S) -> Boolean = { state ->
-        when (state) {
-            is GraphState -> {
-                state.withCompleted(true)
-                Log.d(TAG, "狀態操作: 強制標記為已完成")
-                true
-            }
-            else -> false
-        }
-    }
-
-    /**
      * 組合多個條件，所有條件必須為真
      */
     fun <S> all(vararg conditions: (S) -> Boolean): (S) -> Boolean = { state ->

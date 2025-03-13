@@ -7,7 +7,7 @@ import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.node.ToolNode
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
-import com.smith.lai.smithtoolcalls.tools.BaseTool
+import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
 
 /**
  * 統一的會話代理工廠 - 創建標準會話代理流程

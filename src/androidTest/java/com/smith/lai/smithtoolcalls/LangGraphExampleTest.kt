@@ -8,8 +8,8 @@ import com.smith.lai.smithtoolcalls.custom_data.MyCustomState
 import com.smith.lai.smithtoolcalls.langgraph.LangGraph
 import com.smith.lai.smithtoolcalls.langgraph.model.SmolLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
-import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
-import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
+import com.smith.lai.smithtoolcalls.langgraph.tools.example_tools.CalculatorTool
+import com.smith.lai.smithtoolcalls.langgraph.tools.example_tools.WeatherTool
 import com.smith.lai.smithtoolcalls.langgraph.model.adapter.Llama3_2_3B_LLMToolAdapter
 import com.smith.lai.smithtoolcalls.langgraph.node.LLMNode
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames

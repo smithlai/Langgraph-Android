@@ -1,8 +1,8 @@
-package com.smith.lai.smithtoolcalls.tools.example_tools
+package com.smith.lai.smithtoolcalls.langgraph.tools.example_tools
 
-import com.smith.lai.smithtoolcalls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
-import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolFollowUpMetadata
+import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolAnnotation
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter

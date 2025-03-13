@@ -1,4 +1,4 @@
-package com.smith.lai.smithtoolcalls.tools
+package com.smith.lai.smithtoolcalls.langgraph.tools
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)

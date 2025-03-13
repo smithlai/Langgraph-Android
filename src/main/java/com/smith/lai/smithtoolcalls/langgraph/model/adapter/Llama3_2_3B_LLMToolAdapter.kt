@@ -1,19 +1,18 @@
 package com.smith.lai.smithtoolcalls.langgraph.model.adapter
 
-import com.smith.lai.smithtoolcalls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tools.FinishReason
-import com.smith.lai.smithtoolcalls.tools.FunctionCall
-import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
-import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.TokenUsage
-import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
-import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
+import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
+import com.smith.lai.smithtoolcalls.langgraph.response.FinishReason
+import com.smith.lai.smithtoolcalls.langgraph.response.TokenUsage
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolCallInfo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import android.util.Log
+import com.smith.lai.smithtoolcalls.langgraph.response.LLMResponseMetadata
+import com.smith.lai.smithtoolcalls.langgraph.response.StructuredLLMResponse
 import java.util.UUID
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
@@ -135,7 +134,7 @@ Format your answer in a clear, human-readable way.
                     return StructuredLLMResponse(
                         content = trimmedResponse,
                         toolCalls = toolCalls,
-                        metadata = ResponseMetadata(
+                        metadata = LLMResponseMetadata(
                             tokenUsage = estimateTokenUsage(trimmedResponse),
                             finishReason = FinishReason.TOOL_CALLS.value
                         )
@@ -146,7 +145,7 @@ Format your answer in a clear, human-readable way.
             // 如果不是工具調用格式，視為直接文本回應
             return StructuredLLMResponse(
                 content = response,
-                metadata = ResponseMetadata(
+                metadata = LLMResponseMetadata(
                     tokenUsage = estimateTokenUsage(response),
                     finishReason = FinishReason.STOP.value
                 )
@@ -156,7 +155,7 @@ Format your answer in a clear, human-readable way.
             // 出現任何異常，返回原始文本作為內容
             return StructuredLLMResponse(
                 content = response,
-                metadata = ResponseMetadata(
+                metadata = LLMResponseMetadata(
                     finishReason = FinishReason.ERROR.value
                 )
             )
@@ -277,10 +276,8 @@ Format your answer in a clear, human-readable way.
                     result.add(
                         ToolCallInfo(
                             id = generateCallId(),
-                            function = FunctionCall(
-                                name = functionName,
-                                arguments = jsonParams
-                            )
+                            name = functionName,
+                            arguments = jsonParams
                         )
                     )
                 }

@@ -1,5 +1,6 @@
-package com.smith.lai.smithtoolcalls.tools
+package com.smith.lai.smithtoolcalls.langgraph.tools
 
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolFollowUpMetadata
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add

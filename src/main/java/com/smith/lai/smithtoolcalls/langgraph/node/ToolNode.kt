@@ -2,17 +2,13 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolFollowUpMetadata
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolResponse
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.Message
-import com.smith.lai.smithtoolcalls.tools.BaseTool
-import com.smith.lai.smithtoolcalls.tools.FinishReason
-import com.smith.lai.smithtoolcalls.tools.ResponseMetadata
-import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.ToolAnnotation
-import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
-import com.smith.lai.smithtoolcalls.tools.ToolFollowUpMetadata
-import com.smith.lai.smithtoolcalls.tools.ToolResponse
-import com.smith.lai.smithtoolcalls.tools.ToolResponseType
+import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolAnnotation
+import com.smith.lai.smithtoolcalls.langgraph.tools.ToolCallInfo
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
@@ -93,7 +89,6 @@ class ToolNode<S : GraphState>(
 
             val messageList = mutableListOf<Message>()
             toolResponses.forEach { response ->
-                Log.d(TAG, "添加工具響應: ${response.type}")
                 val toolMessage = Message.fromToolResponse(response)
                 messageList.add(toolMessage)
             }
@@ -119,14 +114,13 @@ class ToolNode<S : GraphState>(
             toolCall.executed = true
 
             // 優先從本地工具映射中尋找工具
-            val tool = getTool(toolCall.function.name) ?: model.getTool(toolCall.function.name)
+            val tool = getTool(toolCall.name) ?: model.getTool(toolCall.name)
 
             if (tool == null) {
                 // 處理找不到工具的情況
                 val errorResponse = ToolResponse(
                     id = toolCall.id,
-                    type = ToolResponseType.ERROR,
-                    output = "Tool ${toolCall.function.name} not found",
+                    output = "Tool ${toolCall.name} not found",
                     followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )
                 toolResponses.add(errorResponse)
@@ -139,7 +133,7 @@ class ToolNode<S : GraphState>(
 
                 val arguments = json.decodeFromString(
                     parameterType.serializer(),
-                    toolCall.function.arguments
+                    toolCall.arguments
                 )
 
                 // 執行工具
@@ -162,7 +156,6 @@ class ToolNode<S : GraphState>(
                 // 處理執行錯誤
                 val errorResponse = ToolResponse(
                     id = toolCall.id,
-                    type = ToolResponseType.ERROR,
                     output = "Error executing tool: ${e.message}",
                     followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
                 )

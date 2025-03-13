@@ -1,8 +1,7 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.ToolResponse
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolResponse
 
 /**
  * 抽象GraphState實現 - 提供基本圖狀態功能的默認實現

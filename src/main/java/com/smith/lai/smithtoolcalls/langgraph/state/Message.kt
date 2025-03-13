@@ -1,8 +1,7 @@
 package com.smith.lai.smithtoolcalls.langgraph.state
 
-import com.smith.lai.smithtoolcalls.tools.StructuredLLMResponse
-import com.smith.lai.smithtoolcalls.tools.ToolCallInfo
-import com.smith.lai.smithtoolcalls.tools.ToolResponse
+import com.smith.lai.smithtoolcalls.langgraph.response.StructuredLLMResponse
+import com.smith.lai.smithtoolcalls.langgraph.response.ToolResponse
 import java.util.UUID
 
 /**
@@ -50,13 +49,13 @@ data class Message(
                     "The tool returned: \"${toolResponse.output}\". Based on this information, continue answering the request."
                 },
 //                toolOutput = toolResponse.output,
-                toolResponse = toolResponse,  // Store the complete ToolResponse
-                metadata = mapOf(
-                    "toolId" to toolResponse.id,
-                    "toolType" to toolResponse.type.toString(),
-                    "requiresFollowUp" to toolResponse.followUpMetadata.requiresFollowUp.toString(),
-                    "shouldTerminateFlow" to toolResponse.followUpMetadata.shouldTerminateFlow.toString()
-                )
+                toolResponse = toolResponse  // Store the complete ToolResponse
+//                metadata = mapOf(
+//                    "toolId" to toolResponse.id,
+//                    "toolType" to toolResponse.type.toString(),
+//                    "requiresFollowUp" to toolResponse.followUpMetadata.requiresFollowUp.toString(),
+//                    "shouldTerminateFlow" to toolResponse.followUpMetadata.shouldTerminateFlow.toString()
+//                )
             )
         }
     }
