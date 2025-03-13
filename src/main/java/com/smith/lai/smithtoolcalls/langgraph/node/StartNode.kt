@@ -15,9 +15,6 @@ class StartNode<S : GraphState>(
     override suspend fun invoke(state: S): S {
         Log.d(logTag, "Start node: initializing graph execution")
 
-        // 重置步驟計數
-        (state as GraphState).incrementStep()
-
         return state
     }
 

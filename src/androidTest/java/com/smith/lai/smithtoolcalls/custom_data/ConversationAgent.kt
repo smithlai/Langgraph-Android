@@ -7,6 +7,7 @@ import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.node.ToolNode
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
+import com.smith.lai.smithtoolcalls.tools.BaseTool
 
 /**
  * 統一的會話代理工廠 - 創建標準會話代理流程
@@ -14,20 +15,23 @@ import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
 object ConversationAgent {
     /**
      * 創建標準會話代理，適用於任何GraphState實現
+     * 支持工具執行
      */
     fun <S : GraphState> createExampleWithTools(
         model: LLMWithTools,
-        // 可選的自定義節點創建函數
-//        createLLMNode: ((SmolLM, ToolRegistry) -> Node<S>)? = null,
-//        createToolNode: ((ToolRegistry) -> Node<S>)? = null
+        tools: List<BaseTool<*, *>> = emptyList()
     ): LangGraph<S> {
         // 創建圖構建器
         val graphBuilder = LangGraph<S>()
 
-        // 使用提供的創建函數或默認實現
+        // 創建節點
         val llmNode = LLMNode<S>(model)
-
         val toolNode = ToolNode<S>(model)
+
+        // 將工具直接綁定到ToolNode
+        if (tools.isNotEmpty()) {
+            toolNode.bind_tools(tools)
+        }
 
         graphBuilder.addStartNode()
         graphBuilder.addEndNode()
@@ -61,7 +65,7 @@ object ConversationAgent {
     ): LangGraph<S> {
         val graphBuilder = LangGraph<S>()
 
-        // 添加节点 - 直接使用新的節點類
+        // 添加节点
         val llmNode = LLMNode<S>(model)
 
         graphBuilder.addStartNode()

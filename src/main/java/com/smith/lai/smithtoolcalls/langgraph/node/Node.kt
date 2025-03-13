@@ -33,10 +33,10 @@ abstract class Node<S> {
         }
 
         // 执行节点特定的前置检查
-        if (!canProcess(state)) {
-            Log.d(TAG, "${this.javaClass.simpleName}: 前置检查未通过，跳过处理")
-            return skipProcessing(state)
-        }
+//        if (!canProcess(state)) {
+//            Log.d(TAG, "${this.javaClass.simpleName}: 前置检查未通过，跳过处理")
+//            return skipProcessing(state)
+//        }
 
         try {
             // 执行核心处理逻辑
@@ -61,22 +61,22 @@ abstract class Node<S> {
      */
     protected abstract suspend fun invoke(state: S): S
 
-    /**
-     * 檢查是否可以處理該狀態
-     * 子類可以覆寫以提供額外的檢查邏輯
-     */
-    protected open fun canProcess(state: S): Boolean {
-        return true
-    }
+//    /**
+//     * 檢查是否可以處理該狀態
+//     * 子類可以覆寫以提供額外的檢查邏輯
+//     */
+//    protected open fun canProcess(state: S): Boolean {
+//        return true
+//    }
 
     /**
      * 處理跳過的情況
      * 當canProcess返回false時調用
      */
-    protected open fun skipProcessing(state: S): S {
-        if (state is GraphState) {
-            return state.withCompleted(true) as S
-        }
-        return state
-    }
+//    protected open fun skipProcessing(state: S): S {
+//        if (state is GraphState) {
+//            return state.withCompleted(true) as S
+//        }
+//        return state
+//    }
 }

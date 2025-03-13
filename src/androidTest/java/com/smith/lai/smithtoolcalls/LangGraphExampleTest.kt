@@ -5,11 +5,16 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.smith.lai.smithtoolcalls.custom_data.ConversationAgent
 import com.smith.lai.smithtoolcalls.custom_data.MyCustomState
+import com.smith.lai.smithtoolcalls.langgraph.LangGraph
 import com.smith.lai.smithtoolcalls.langgraph.model.SmolLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import com.smith.lai.smithtoolcalls.tools.example_tools.CalculatorTool
 import com.smith.lai.smithtoolcalls.tools.example_tools.WeatherTool
 import com.smith.lai.smithtoolcalls.langgraph.model.adapter.Llama3_2_3B_LLMToolAdapter
+import com.smith.lai.smithtoolcalls.langgraph.node.LLMNode
+import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
+import com.smith.lai.smithtoolcalls.langgraph.node.ToolNode
+import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
 import io.shubham0204.smollm.SmolLM
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -65,6 +70,79 @@ class LangGraphExampleTest {
         Log.i(DEBUG_TAG, "========================================")
     }
 
+
+    @Test
+    fun test_000_ToolNodeWithDirectBindTools() {
+        runBlocking {
+            try {
+                // 加載模型
+                loadModel()
+
+                val llmwithTools = SmolLMWithTools(Llama3_2_3B_LLMToolAdapter(), smolLM)
+
+                // 創建圖的基本結構
+                val graphBuilder = LangGraph<MyCustomState>()
+
+                // 創建節點
+                val llmNode = LLMNode<MyCustomState>(llmwithTools)
+                val toolNode = ToolNode<MyCustomState>(llmwithTools)
+
+                // 直接使用 ToolNode 的 bind_tools 方法
+                toolNode.bind_tools(CalculatorTool())
+                    .bind_tools(WeatherTool())
+
+                // 添加節點和邊
+                graphBuilder.addStartNode()
+                graphBuilder.addEndNode()
+                graphBuilder.addNode("llm", llmNode)
+                graphBuilder.addNode(NodeNames.TOOLS, toolNode)
+
+                graphBuilder.addEdge(NodeNames.START, "llm")
+                graphBuilder.addConditionalEdges(
+                    "llm",
+                    mapOf(
+                        StateConditions.hasToolCalls<MyCustomState>() to NodeNames.TOOLS,
+                        StateConditions.isComplete<MyCustomState>() to NodeNames.END
+                    ),
+                    defaultTarget = NodeNames.END
+                )
+                graphBuilder.addEdge(NodeNames.TOOLS, "llm")
+
+                // 編譯圖
+                val graph = graphBuilder.compile()
+
+                // 創建初始狀態並執行
+                val initialState = MyCustomState().apply {
+                    addMessage(MessageRole.USER, "What's 42 + 18 and what's the weather in Tokyo?")
+                }
+
+                val result = graph.run(initialState)
+
+                // 驗證結果
+                Assert.assertTrue("Execution should complete", result.completed)
+                Assert.assertNull("Should have no errors", result.error)
+
+                // 檢查是否使用了工具
+                val usedCalculator = result.getToolMessages().any {
+                    it.toolResponse?.output.toString() == "60"
+                }
+
+                val usedWeather = result.getToolMessages().any {
+                    it.toolResponse?.output.toString().contains("Tokyo")
+                }
+
+                Assert.assertTrue("Should have used calculator", usedCalculator)
+                Assert.assertTrue("Should have used weather tool", usedWeather)
+
+                Log.d(DEBUG_TAG, "Final response: ${result.getLastAssistantMessage()?.content}")
+
+            } catch (e: Exception) {
+                Log.e(DEBUG_TAG, "Test failed", e)
+                throw e
+            }
+        }
+    }
+
     @Test
     fun test_001_ConversationalWithTools() {
         runBlocking {
@@ -73,11 +151,14 @@ class LangGraphExampleTest {
                 loadModel()
 
                 val llmwithTools = SmolLMWithTools(Llama3_2_3B_LLMToolAdapter(), smolLM)
-                llmwithTools.bind_tools(listOf(CalculatorTool(), WeatherTool()))
 
-                // 使用新的統一代理創建圖
+                // 創建工具實例
+                val tools = listOf(CalculatorTool(), WeatherTool())
+
+                // 創建圖 - 工具會直接通過 ToolNode.bind_tools 綁定
                 val graph = ConversationAgent.createExampleWithTools<MyCustomState>(
-                    model = llmwithTools
+                    model = llmwithTools,
+                    tools = tools
                 )
 
                 // 創建初始狀態
@@ -85,7 +166,7 @@ class LangGraphExampleTest {
                     addMessage(MessageRole.USER, "What's 125 + 437 and what's the weather in San Francisco?")
                 }
 
-                // 執行圖 - 直接傳入狀態
+                // 執行圖
                 val result = graph.run(initialState)
 
                 // 記錄和驗證結果
@@ -125,6 +206,7 @@ class LangGraphExampleTest {
             }
         }
     }
+
 
     @Test
     fun test_002_ConversationsWithoutTools() {

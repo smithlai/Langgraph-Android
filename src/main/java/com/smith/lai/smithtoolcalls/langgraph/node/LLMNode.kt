@@ -22,11 +22,4 @@ class LLMNode<S : GraphState>(protected val model: LLMWithTools) : Node<S>() {
         val hasToolCalls = responseMessage.hasToolCalls()
         return state.withCompleted(!hasToolCalls) as S
     }
-
-    /**
-     * 檢查是否可以處理該狀態
-     */
-    override fun canProcess(state: S): Boolean {
-        return state.messages.isNotEmpty()
-    }
 }

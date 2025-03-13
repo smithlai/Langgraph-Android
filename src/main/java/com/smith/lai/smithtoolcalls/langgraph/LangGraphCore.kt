@@ -66,10 +66,10 @@ class LangGraph<S: GraphState>(
     /**
      * 設置完成條件檢查器，用於決定圖執行何時應該結束
      */
-    fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {
-        completeChecker = checker
-        return this
-    }
+//    fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {
+//        completeChecker = checker
+//        return this
+//    }
 
     /**
      * 設置最大步驟數
@@ -114,7 +114,6 @@ class LangGraph<S: GraphState>(
 
         var state = initialState
         var currentNodeName = startNodeName
-        var stepCount = 0
 
         val startTime = System.currentTimeMillis()
 
@@ -122,10 +121,10 @@ class LangGraph<S: GraphState>(
 
         while (true) {
             // 遞增步驟計數
-            stepCount++
+            state.incrementStep()
 
             // 檢查最大步驟數
-            if (stepCount >= maxSteps) {
+            if (state.stepCount >= maxSteps) {
                 Log.e(logTag, "達到最大步驟數 ($maxSteps)，終止執行")
                 break
             }
@@ -137,14 +136,14 @@ class LangGraph<S: GraphState>(
                 break
             }
 
-            Log.d(logTag, "===== 步驟 $stepCount: 執行節點 '$currentNodeName' =====")
+            Log.d(logTag, "===== 步驟 ${state.stepCount}: 執行節點 '$currentNodeName' =====")
 
             // 執行節點 - 使用process方法而不是直接invoke
             val nodeStartTime = System.currentTimeMillis()
             state = currentNode.process(state)
             val nodeDuration = System.currentTimeMillis() - nodeStartTime
 
-            Log.d(logTag, "步驟 $stepCount: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
+            Log.d(logTag, "步驟 ${state.stepCount}: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
 
             // 檢查完成條件
             if (completeChecker(state) || currentNodeName == endNodeName) {
@@ -156,17 +155,17 @@ class LangGraph<S: GraphState>(
             val nextNodeName = findNextNode(currentNodeName, state)
 
             // 防止無限循環
-            if (nextNodeName == currentNodeName && stepCount > 5) {
+            if (nextNodeName == currentNodeName && state.stepCount > 5) {
                 Log.e(logTag, "檢測到潛在的無限循環: '$currentNodeName' -> '$currentNodeName'，終止執行")
                 break
             }
 
-            Log.d(logTag, "步驟 $stepCount: 從 '$currentNodeName' 轉換到 '$nextNodeName'")
+            Log.d(logTag, "步驟 ${state.stepCount}: 從 '$currentNodeName' 轉換到 '$nextNodeName'")
             currentNodeName = nextNodeName
         }
 
         val totalDuration = System.currentTimeMillis() - startTime
-        Log.d(logTag, "圖執行完成，共 $stepCount 步，總耗時 ${totalDuration}ms")
+        Log.d(logTag, "圖執行完成，共 ${state.stepCount} 步，總耗時 ${totalDuration}ms")
 
         return state
     }
