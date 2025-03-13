@@ -1,25 +1,23 @@
 package com.smith.lai.smithtoolcalls.langgraph.node
 
+import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 
 /**
  * LLM 節點 - 處理對LLM的調用
+ * 只生成響應，完全不接觸狀態
  */
 class LLMNode<S : GraphState>(protected val model: LLMWithTools) : Node<S>() {
+    private val TAG = "LLMNode"
 
     /**
-     * 核心處理邏輯
+     * 核心處理邏輯 - 只專注於使用LLM生成回應
      */
-    override suspend fun invoke(state: S): S {
+    override suspend fun invoke(state: S): Any? {
+        Log.d(TAG, "Generating LLM response")
+
         // 使用LLM處理消息並生成回應
-        val responseMessage = model.invoke(state.messages)
-
-        // 添加回應到狀態
-        state.addMessage(responseMessage)
-
-        // 檢查是否有工具調用並設置狀態
-        val hasToolCalls = responseMessage.hasToolCalls()
-        return state.withCompleted(!hasToolCalls) as S
+        return model.invoke(state.messages)
     }
 }

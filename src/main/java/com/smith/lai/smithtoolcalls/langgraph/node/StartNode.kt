@@ -6,16 +6,17 @@ import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 /**
  * 開始節點實現
  * 作為圖流程的入口點
- *
- * @param logTag 日誌標籤
  */
 class StartNode<S : GraphState>(
     private val logTag: String = TAG
 ) : Node<S>() {
-    override suspend fun invoke(state: S): S {
+    /**
+     * 核心處理邏輯
+     */
+    override suspend fun invoke(state: S): Any? {
         Log.d(logTag, "Start node: initializing graph execution")
-
-        return state
+        // the beginning 沒有特定輸出
+        return null
     }
 
     companion object {

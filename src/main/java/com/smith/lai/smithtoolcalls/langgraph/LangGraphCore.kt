@@ -4,9 +4,13 @@ import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.Message
+import com.smith.lai.smithtoolcalls.langgraph.state.StateConditions
+import com.smith.lai.smithtoolcalls.tools.ToolResponse
 
 /**
  * LangGraph - 通用圖執行引擎
+ * 完全負責狀態管理和流程控制
  */
 class LangGraph<S: GraphState>(
     private val nodes: MutableMap<String, Node<S>> = mutableMapOf(),
@@ -14,21 +18,19 @@ class LangGraph<S: GraphState>(
     private val defaultEdges: MutableMap<String, String> = mutableMapOf(),
     private var startNodeName: String = NodeNames.START,
     private var endNodeName: String = NodeNames.END,
-    private var completeChecker: (S) -> Boolean = { state -> state.completed },
     private var maxSteps: Int = 50
 ) {
     private val logTag = "LangGraph"
     private var compiled = false
 
-    /**
-     * 添加節點
-     */
     fun addStartNode(): LangGraph<S> {
         return addNode(NodeNames.START, com.smith.lai.smithtoolcalls.langgraph.node.StartNode<S>())
     }
+
     fun addEndNode(): LangGraph<S> {
         return addNode(NodeNames.END, com.smith.lai.smithtoolcalls.langgraph.node.EndNode<S>())
     }
+
     /**
      * 添加節點
      */
@@ -64,14 +66,6 @@ class LangGraph<S: GraphState>(
     }
 
     /**
-     * 設置完成條件檢查器，用於決定圖執行何時應該結束
-     */
-//    fun setCompletionChecker(checker: (S) -> Boolean): LangGraph<S> {
-//        completeChecker = checker
-//        return this
-//    }
-
-    /**
      * 設置最大步驟數
      */
     fun setMaxSteps(steps: Int): LangGraph<S> {
@@ -97,7 +91,7 @@ class LangGraph<S: GraphState>(
     }
 
     /**
-     * 執行圖（呼叫別名）
+     * 執行圖（調用別名）
      */
     suspend fun invoke(initialState: S): S {
         return run(initialState)
@@ -120,7 +114,7 @@ class LangGraph<S: GraphState>(
         Log.d(logTag, "開始執行圖，入口: '$startNodeName'")
 
         while (true) {
-            // 遞增步驟計數
+            // 增加步驟計數
             state.incrementStep()
 
             // 檢查最大步驟數
@@ -138,15 +132,94 @@ class LangGraph<S: GraphState>(
 
             Log.d(logTag, "===== 步驟 ${state.stepCount}: 執行節點 '$currentNodeName' =====")
 
-            // 執行節點 - 使用process方法而不是直接invoke
-            val nodeStartTime = System.currentTimeMillis()
-            state = currentNode.process(state)
-            val nodeDuration = System.currentTimeMillis() - nodeStartTime
+            try {
+                // 執行節點
+                val nodeStartTime = System.currentTimeMillis()
+                val nodeOutput = currentNode.process(state)
+                val nodeDuration = System.currentTimeMillis() - nodeStartTime
 
-            Log.d(logTag, "步驟 ${state.stepCount}: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
+                Log.d(logTag, "步驟 ${state.stepCount}: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
+
+                // 處理節點輸出並更新狀態 - 基於輸出內容而非節點名稱
+                when (nodeOutput) {
+                    // LLM 節點輸出消息
+                    is Message -> {
+                        Log.d(logTag, "處理輸出: Message - ${nodeOutput.content.take(50)}...")
+
+                        // 添加消息到狀態
+                        state.addMessage(nodeOutput)
+
+                        // 檢查是否有工具調用
+                        if (nodeOutput.structuredLLMResponse != null && nodeOutput.hasToolCalls()) {
+                            Log.d(logTag, "消息包含工具調用，繼續流程")
+                        } else {
+                            state.withCompleted(true)
+                            Log.d(logTag, "消息不包含工具調用，標記流程完成")
+                        }
+                    }
+
+                    // 檢查是否為List<ToolResponse<*>>
+                    // 工具節點輸出執行結果
+                    is List<*> -> {
+                        if (nodeOutput.isNotEmpty() && nodeOutput.all { it is ToolResponse<*> }) {
+                            Log.d(logTag, "處理輸出: ToolResponse 列表 - ${nodeOutput.size} 個響應")
+
+                            // 是工具響應列表
+                            var shouldTerminate = false
+
+                            @Suppress("UNCHECKED_CAST")
+                            (nodeOutput as List<ToolResponse<*>>).forEach { response ->
+                                Log.d(logTag, "添加工具響應: ${response.type}")
+                                val toolMessage = Message.fromToolResponse(response)
+                                state.addMessage(toolMessage)
+
+                                // 檢查工具是否要求終止流程
+                                if (response.followUpMetadata.shouldTerminateFlow) {
+                                    shouldTerminate = true
+                                    Log.d(logTag, "工具要求終止流程")
+                                }
+                            }
+
+                            if (shouldTerminate) {
+                                state.withCompleted(true)
+                                Log.d(logTag, "根據工具響應，標記流程完成")
+                            }
+                        } else {
+                            Log.d(logTag, "處理輸出: 普通列表 - ${nodeOutput.size} 個項目")
+                        }
+                    }
+
+                    // 終止節點可能返回特定標記
+                    is String -> {
+                        if (nodeOutput == "END" || currentNodeName == endNodeName) {
+                            Log.d(logTag, "檢測到終止標記，標記流程完成")
+                            state.withCompleted(true)
+                        } else {
+                            Log.d(logTag, "處理字符串輸出: $nodeOutput")
+                        }
+                    }
+
+                    // 其他類型輸出
+                    else -> {
+                        if (currentNodeName == endNodeName) {
+                            Log.d(logTag, "終止節點執行完成，標記流程完成")
+                            state.withCompleted(true)
+                        } else {
+                            Log.d(logTag, "未知輸出類型或空輸出")
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                // 處理節點執行異常
+                Log.e(logTag, "節點執行異常: ${e.message}", e)
+                state = state.withError("Error executing node '$currentNodeName': ${e.message}") as S
+                state.withCompleted(true)
+                break
+            }
 
             // 檢查完成條件
-            if (completeChecker(state) || currentNodeName == endNodeName) {
+            if (state.completed || currentNodeName == endNodeName) {
                 Log.d(logTag, "狀態已完成或達到終止節點，結束執行")
                 break
             }

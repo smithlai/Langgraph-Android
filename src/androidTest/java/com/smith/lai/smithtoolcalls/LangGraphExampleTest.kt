@@ -155,7 +155,7 @@ class LangGraphExampleTest {
                 // 創建工具實例
                 val tools = listOf(CalculatorTool(), WeatherTool())
 
-                // 創建圖 - 工具會直接通過 ToolNode.bind_tools 綁定
+                // 創建圖
                 val graph = ConversationAgent.createExampleWithTools<MyCustomState>(
                     model = llmwithTools,
                     tools = tools
@@ -206,7 +206,6 @@ class LangGraphExampleTest {
             }
         }
     }
-
 
     @Test
     fun test_002_ConversationsWithoutTools() {

@@ -15,7 +15,7 @@ import com.smith.lai.smithtoolcalls.tools.BaseTool
 object ConversationAgent {
     /**
      * 創建標準會話代理，適用於任何GraphState實現
-     * 支持工具執行
+     * 支援工具執行
      */
     fun <S : GraphState> createExampleWithTools(
         model: LLMWithTools,
@@ -58,25 +58,33 @@ object ConversationAgent {
     }
 
     /**
-     * 创建简化对话代理 - 不使用工具调用，仅对话
+     * 建立簡化對話代理 - 不使用工具調用，僅對話
      */
     fun <S : GraphState> createExampleWithoutTools(
         model: LLMWithTools
     ): LangGraph<S> {
         val graphBuilder = LangGraph<S>()
 
-        // 添加节点
+        // 添加節點
         val llmNode = LLMNode<S>(model)
 
         graphBuilder.addStartNode()
         graphBuilder.addEndNode()
         graphBuilder.addNode("llm", llmNode)
 
-        // 添加边
+        // 添加邊
         graphBuilder.addEdge(NodeNames.START, "llm")
-        graphBuilder.addEdge("llm", NodeNames.END)
 
-        // 编译并返回图
+        // 使用狀態條件
+        graphBuilder.addConditionalEdges(
+            "llm",
+            mapOf(
+                StateConditions.isComplete<S>() to NodeNames.END
+            ),
+            defaultTarget = NodeNames.END
+        )
+
+        // 編譯並返回圖
         return graphBuilder.compile()
     }
 }
