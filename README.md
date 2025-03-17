@@ -17,6 +17,9 @@ include(":SmithToolCalls")
 ```kotlin
 plugins {
     id("kotlinx-serialization")
+    id("com.google.devtools.ksp") version "2.1.0-1.0.29" apply false    //Plugin [id: 'com.google.devtools.ksp'] was not found in any of the following sources:
+    kotlin("plugin.serialization") version "2.1.0" apply false    //Plugin [id: 'kotlinx-serialization'] was not found in any of the following sources:
+
 }
 
 dependencies {
