@@ -28,23 +28,26 @@ abstract class LLMWithTools(
     // 追踪工具提示是否已添加
     private var isToolPromptAdded = false
     // 追踪初始訊息是否已添加
-    private var messagesInitialized = false
+//    private var messagesInitialized = false
 
-    fun bind_tools(tool: BaseTool<*, *>) {
+    fun bind_tools(tool: BaseTool<*, *>):LLMWithTools {
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
         // 當修改工具時重置提示狀態
         isToolPromptAdded = false
+        return this
     }
 
-    fun bind_tools(toolClass: KClass<out BaseTool<*, *>>) {
+    fun bind_tools(toolClass: KClass<out BaseTool<*, *>>):LLMWithTools {
         val instance = toolClass.createInstance()
         bind_tools(instance)
+        return this
     }
 
-    fun bind_tools(tools: List<BaseTool<*, *>>) {
+    fun bind_tools(tools: List<BaseTool<*, *>>):LLMWithTools {
         tools.forEach { bind_tools(it) }
+        return this
     }
 
     fun getTool(name: String): BaseTool<*, *>? = tools[name]
@@ -54,18 +57,11 @@ abstract class LLMWithTools(
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
     /**
-     * 創建工具提示
-     */
-    fun createToolPrompt(): String {
-        return adapter?.createToolPrompt(getTools()) ?: ""
-    }
-
-    /**
      * 添加工具提示到模型並標記為已添加
      */
     fun addToolPrompt() {
         if (!isToolPromptAdded) {
-            val systemPrompt = createToolPrompt()
+            val systemPrompt = adapter?.createToolPrompt(getTools()) ?: ""
             Log.d(TAG, "Adding ToolPrompt(${systemPrompt.length})")
             addSystemMessage(systemPrompt)
             isToolPromptAdded = true
@@ -106,38 +102,30 @@ abstract class LLMWithTools(
      * @return 助手的回應消息
      */
     suspend fun invoke(messages: List<Message>): Message {
-        try {
-            // 準備模型 - 確保工具提示已添加
-            if (!isToolPromptAdded) {
-                addToolPrompt()
-            }
-
-            // 將消息添加到模型
-            addMessagesToModel(messages)
-
-            // 生成回應
-            val responseText = StringBuilder()
-            getResponse().collect { chunk ->
-                responseText.append(chunk)
-            }
-            Log.i(TAG, "LLM Responses: $responseText")
-
-            // 解析回應
-            val structuredResponse = convertToStructured(responseText.toString())
-
-            // 創建並返回助手消息
-            return Message(
-                role = MessageRole.ASSISTANT,
-                content = responseText.toString(),
-                structuredLLMResponse = structuredResponse
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error generating response: ${e.message}", e)
-            return Message(
-                role = MessageRole.ASSISTANT,
-                content = "Error generating response: ${e.message}"
-            )
+        // 準備模型 - 確保工具提示已添加
+        if (!isToolPromptAdded) {
+            addToolPrompt()
         }
+
+        // 將消息添加到模型
+        addMessagesToModel(messages)
+
+        // 生成回應
+        val responseText = StringBuilder()
+        getResponse().collect { chunk ->
+            responseText.append(chunk)
+        }
+        Log.i(TAG, "LLM Responses: $responseText")
+
+        // 解析回應
+        val structuredResponse = convertToStructured(responseText.toString())
+
+        // 創建並返回助手消息
+        return Message(
+            role = MessageRole.ASSISTANT,
+            content = responseText.toString(),
+            structuredLLMResponse = structuredResponse
+        )
     }
 
     /**
@@ -160,6 +148,7 @@ abstract class LLMWithTools(
                     MessageRole.USER -> addUserMessage(message.content)
                     MessageRole.ASSISTANT -> addAssistantMessage(message.content)
                     MessageRole.TOOL -> addToolMessage(message.content)
+                    MessageRole.ERROR -> {/*do nothing*/}
                 }
                 Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
             }

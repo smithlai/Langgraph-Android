@@ -4,6 +4,8 @@ import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.node.Node
 import com.smith.lai.smithtoolcalls.langgraph.node.Node.Companion.NodeNames
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
+import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
+import nonapi.io.github.classgraph.utils.Assert
 
 /**
  * LangGraph - 通用圖執行引擎
@@ -104,6 +106,8 @@ class LangGraph<S: GraphState>(
         }
 
         var state = initialState
+        state.resetStatus()
+
         var currentNodeName = startNodeName
 
         val startTime = System.currentTimeMillis()
@@ -137,20 +141,29 @@ class LangGraph<S: GraphState>(
 
                 Log.d(logTag, "步驟 ${state.stepCount}: 節點 '$currentNodeName' 執行完成，耗時 ${nodeDuration}ms")
                 nodeOutput.forEach { message ->
-                    // LLM 節點輸出消息
-                    if (message.structuredLLMResponse != null){
-                        Log.d(logTag, "處理輸出: Message - ${message.content.take(50)}...")
-                        state.addMessage(message)
-                        // 檢查是否有工具調用
-//                        if (message.hasToolCalls()) {
-//                            Log.d(logTag, "消息包含工具調用，繼續流程")
-//                        } else {
-//                            Log.d(logTag, "消息不包含工具調用，標記流程完成")
-//                            state.withCompleted(true)
-//                        }
-                    }else if(message.toolResponse != null){
-                        Log.d(logTag, "處理輸出: ToolResponse - ${message.toolResponse.output}")
-                        state.addMessage(message)
+                    when(message.role){
+                        // LLM 節點輸出消息
+                        MessageRole.ASSISTANT -> {
+                            if (message.structuredLLMResponse == null)
+                                throw AssertionError("message.structuredLLMResponse should work with MessageRole.ASSISTANT")
+                            Log.d(logTag, "處理輸出: Message - ${message.content.take(50)}...")
+                            state.addMessage(message)
+                        }
+                        // Tool 節點輸出消息
+                        MessageRole.TOOL -> {
+                            if(message.toolResponse == null)
+                                throw AssertionError("message.toolResponse should work with MessageRole.TOOL")
+
+                            Log.d(logTag, "處理輸出: ToolResponse - ${message.toolResponse.output}")
+                            state.addMessage(message)
+                        }
+                        // Node 發生Error
+                        MessageRole.ERROR -> {
+                            Log.d(logTag, "發生錯誤: Error Response - ${message.content}")
+//                        state.addMessage(message)
+                            throw IllegalStateException("${message.content}")
+                        }
+                        else ->{}
                     }
                 }
                 if (currentNodeName == endNodeName) {
@@ -161,8 +174,8 @@ class LangGraph<S: GraphState>(
 
             } catch (e: Exception) {
                 // 處理節點執行異常
-                Log.e(logTag, "節點執行異常: ${e.message}", e)
-                state = state.withError("Error executing node '$currentNodeName': ${e.message}") as S
+                Log.e(logTag, "節點執行異常: '$currentNodeName': ${e.message}", e)
+                state = state.withError("${e.message}") as S
                 state.withCompleted(true)
                 break
             }

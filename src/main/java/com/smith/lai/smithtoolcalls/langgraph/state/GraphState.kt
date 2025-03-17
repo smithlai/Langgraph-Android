@@ -35,7 +35,12 @@ abstract class GraphState {
         error = errorMessage
         return this
     }
-
+    fun resetStatus(): GraphState {
+        stepCount = 0
+        completed = false
+        error = null
+        return this
+    }
     /**
      * 增加步驟計數
      */
@@ -56,6 +61,9 @@ abstract class GraphState {
      * 添加消息對象並自動更新相關狀態
      */
     fun addMessage(message: Message): GraphState {
+//        if (message.role == MessageRole.ERROR) { // Skip error
+//            return this
+//        }
         messages.add(message)
 
         if (message.role == MessageRole.USER || message.role == MessageRole.TOOL) {

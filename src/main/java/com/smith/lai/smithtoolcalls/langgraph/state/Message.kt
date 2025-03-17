@@ -11,7 +11,8 @@ enum class MessageRole {
     SYSTEM,
     USER,
     ASSISTANT,
-    TOOL
+    TOOL,
+    ERROR,
 }
 
 /**

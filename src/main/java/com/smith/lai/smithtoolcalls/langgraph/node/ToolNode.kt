@@ -5,6 +5,7 @@ import com.smith.lai.smithtoolcalls.langgraph.response.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.langgraph.response.ToolResponse
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.Message
+import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 import com.smith.lai.smithtoolcalls.langgraph.tools.BaseTool
 import com.smith.lai.smithtoolcalls.langgraph.tools.ToolAnnotation
 import com.smith.lai.smithtoolcalls.langgraph.tools.ToolCallInfo
@@ -96,37 +97,30 @@ class ToolNode<S : GraphState>(
         // 獲取最後一條包含工具調用的消息
         val messageWithToolCall = state.getLastToolCallsMessage() ?: return listOf()
 
-        try {
-            // 從消息中獲取結構化的LLM回應
-            val structuredLLMResponse = messageWithToolCall.structuredLLMResponse ?: return listOf()
 
-            // 處理工具調用
-            val toolResponses = executeTools(structuredLLMResponse.toolCalls)
+        // 從消息中獲取結構化的LLM回應
+        val structuredLLMResponse = messageWithToolCall.structuredLLMResponse ?: return listOf()
 
-            val messageList = mutableListOf<Message>()
-            toolResponses.forEach { response ->
-                // Only add a tool message if the tool requires follow-up
-                if (response.followUpMetadata.requiresFollowUp) {
-                    val toolMessage = Message.fromToolResponse(response)
-                    messageList.add(toolMessage)
-                } else {
-                    // For tools that don't require follow-up, log but don't add message
-                    Log.d(TAG, "Tool ${response.id} does not require follow-up, skipping message creation")
+        // 處理工具調用
+        val toolResponses = executeTools(structuredLLMResponse.toolCalls)
 
-                    // Set completed state if tool requests to terminate flow
-//                    if (response.followUpMetadata.shouldTerminateFlow) {
-//                        state.completed = true
-//                        Log.d(TAG, "Tool execution completed the flow")
-//                    }
-                }
+        val messageList = mutableListOf<Message>()
+        toolResponses.forEach { response ->
+            // Only add a tool message if the tool requires follow-up
+            if (response.followUpMetadata.requiresFollowUp) {
+                val toolMessage = Message.fromToolResponse(response)
+                messageList.add(toolMessage)
+            } else {
+                // For tools that don't require follow-up, log but don't add message
+                Log.d(
+                    TAG,
+                    "Tool ${response.id} does not require follow-up, skipping message creation"
+                )
             }
-
-            // 返回工具響應列表
-            return messageList
-        } catch (e: Exception) {
-            Log.e(TAG, "Error processing tool calls: ${e.message}", e)
-            return listOf()
         }
+
+        // 返回工具響應列表
+        return messageList
     }
 
     /**

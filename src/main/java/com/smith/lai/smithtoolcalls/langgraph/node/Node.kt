@@ -3,6 +3,7 @@ package com.smith.lai.smithtoolcalls.langgraph.node
 import android.util.Log
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
 import com.smith.lai.smithtoolcalls.langgraph.state.Message
+import com.smith.lai.smithtoolcalls.langgraph.state.MessageRole
 
 /**
  * 節點接口 - 定義圖中節點的基本行為
@@ -39,7 +40,10 @@ abstract class Node<S : GraphState> {
         } catch (e: Exception) {
             // 處理異常
             Log.e(TAG, "${this.javaClass.simpleName}: 處理出錯: ${e.message}", e)
-            return listOf()
+            return listOf(Message(
+                role = MessageRole.ERROR,
+                content = "${e.message}"
+            ))
         }
     }
 

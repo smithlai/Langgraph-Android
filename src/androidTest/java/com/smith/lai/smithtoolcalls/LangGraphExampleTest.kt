@@ -85,11 +85,11 @@ class LangGraphExampleTest {
 
                 // 創建節點
                 val llmNode = LLMNode<MyCustomState>(llmwithTools)
-                val toolNode = ToolNode<MyCustomState>(llmwithTools)
+                llmwithTools.bind_tools(CalculatorTool()).bind_tools(WeatherTool())
 
-                // 直接使用 ToolNode 的 bind_tools 方法
-                toolNode.bind_tools(CalculatorTool())
+                val toolNode = ToolNode<MyCustomState>().bind_tools(CalculatorTool())
                     .bind_tools(WeatherTool())
+
 
                 // 添加節點和邊
                 graphBuilder.addStartNode()
@@ -277,8 +277,6 @@ class LangGraphExampleTest {
 
                 // 第二輪對話 - 繼續使用相同狀態
                 // todo: Failed to answer the correct answer.
-//                result.setStructuredLLMResponse(null) // 重置原始響應
-                result.withCompleted(false) // 重置完成標誌
                 result.addMessage(MessageRole.USER,"Now multiply that by 3")
 
                 // 執行第二輪
@@ -291,44 +289,6 @@ class LangGraphExampleTest {
                 Assert.assertTrue("Response should contain '177'",
                     finalResponse.contains("177") || result.getToolMessages().any { it.content.toString() == "177" })
 
-            } catch (e: Exception) {
-                Log.e(DEBUG_TAG, "Test failed", e)
-                throw e
-            }
-        }
-    }
-
-    @Test
-    fun test_004_ConversationsWithoutTools() {
-        runBlocking {
-            try {
-                loadModel()
-
-                val llmwithTools = SmolLMWithTools(Llama3_2_3B_LLMToolAdapter(), smolLM)
-//                llmwithTools.bind_tools(listOf(CalculatorTool(), WeatherTool()))
-
-                // 使用新的統一代理創建圖
-                val graph = ConversationAgent.createExampleWithoutTools<MyCustomState>(
-                    model = llmwithTools
-                )
-
-                // 創建初始狀態
-                val initialState = MyCustomState().apply {
-                    addMessage(MessageRole.USER,"Tell me a short joke about programming")
-                }
-
-                // 執行圖
-                val result = graph.run(initialState)
-
-                // 驗證結果
-                Log.d(DEBUG_TAG, "Simple agent execution completed in ${result.executionDuration()}ms")
-                Log.d(DEBUG_TAG, "Steps: ${result.stepCount}")
-                val final_response = result.getLastAssistantMessage()?.content ?: ""
-                Log.d(DEBUG_TAG, "Final response: ${final_response}")
-
-                Assert.assertTrue("Execution should complete", result.completed)
-                Assert.assertNull("Should have no errors", result.error)
-                Assert.assertTrue("Should have response", final_response.isNotEmpty())
             } catch (e: Exception) {
                 Log.e(DEBUG_TAG, "Test failed", e)
                 throw e

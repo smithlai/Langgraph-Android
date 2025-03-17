@@ -26,10 +26,11 @@ object ConversationAgent {
 
         // 創建節點
         val llmNode = LLMNode<S>(model)
-        val toolNode = ToolNode<S>(model)
+        val toolNode = ToolNode<S>(tools)
 
         // 將工具直接綁定到ToolNode
         if (tools.isNotEmpty()) {
+            model.bind_tools(tools)
             toolNode.bind_tools(tools)
         }
 
