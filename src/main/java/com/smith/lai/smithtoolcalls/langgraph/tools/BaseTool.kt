@@ -24,12 +24,22 @@ Based on this information, continue answering the request.
 """
     }
     open fun getFollowUpMetadata(response: TOutput): ToolFollowUpMetadata {
-        // 預設行為：需要後續處理
-        return ToolFollowUpMetadata(
-            requiresFollowUp = true,
-            shouldTerminateFlow = false,
-            customFollowUpPrompt = ""
-        )
+        // Modified default behavior to check if response is Unit, which typically indicates
+        // a UI control or action that doesn't need follow-up
+        return if (response is Unit) {
+            ToolFollowUpMetadata(
+                requiresFollowUp = false,
+//                shouldTerminateFlow = false,
+                customFollowUpPrompt = ""
+            )
+        } else {
+            // Default behavior for other response types: requires follow-up
+            ToolFollowUpMetadata(
+                requiresFollowUp = true,
+//                shouldTerminateFlow = false,
+                customFollowUpPrompt = ""
+            )
+        }
     }
 
     fun getParameterType(): KClass<*>? {

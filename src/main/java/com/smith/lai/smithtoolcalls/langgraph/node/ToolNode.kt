@@ -1,7 +1,6 @@
 package com.smith.lai.smithtoolcalls.langgraph.node
 
 import android.util.Log
-import com.smith.lai.smithtoolcalls.langgraph.model.LLMWithTools
 import com.smith.lai.smithtoolcalls.langgraph.response.ToolFollowUpMetadata
 import com.smith.lai.smithtoolcalls.langgraph.response.ToolResponse
 import com.smith.lai.smithtoolcalls.langgraph.state.GraphState
@@ -22,13 +21,32 @@ import kotlin.reflect.full.findAnnotation
  * 只執行工具，不接觸狀態
  */
 class ToolNode<S : GraphState>(
-    protected val model: LLMWithTools
+    toolsList: List<BaseTool<*, *>> = emptyList()
 ) : Node<S>() {
     private val TAG = "ToolNode"
-    private val tools = mutableMapOf<String, BaseTool<*, *>>()
+    private val tools: MutableMap<String, BaseTool<*, *>> = mutableMapOf()
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+    }
+
+    init {
+        // 在初始化時直接綁定工具列表
+        if (toolsList.isNotEmpty()) {
+            bindToolsList(toolsList)
+        }
+    }
+
+    /**
+     * 綁定工具列表，初始化工具映射
+     */
+    private fun bindToolsList(toolsList: List<BaseTool<*, *>>) {
+        toolsList.forEach { tool ->
+            val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
+            throw IllegalArgumentException("Tool must have @Tool annotation")
+            tools[annotation.name] = tool
+            Log.d(TAG, "Bound tool: ${annotation.name}")
+        }
     }
 
     /**
@@ -38,8 +56,6 @@ class ToolNode<S : GraphState>(
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
         throw IllegalArgumentException("Tool must have @Tool annotation")
         tools[annotation.name] = tool
-        // 同時也綁定到模型中，保持同步
-        model.bind_tools(tool)
         Log.d(TAG, "Bound tool: ${annotation.name}")
         return this
     }
@@ -89,8 +105,20 @@ class ToolNode<S : GraphState>(
 
             val messageList = mutableListOf<Message>()
             toolResponses.forEach { response ->
-                val toolMessage = Message.fromToolResponse(response)
-                messageList.add(toolMessage)
+                // Only add a tool message if the tool requires follow-up
+                if (response.followUpMetadata.requiresFollowUp) {
+                    val toolMessage = Message.fromToolResponse(response)
+                    messageList.add(toolMessage)
+                } else {
+                    // For tools that don't require follow-up, log but don't add message
+                    Log.d(TAG, "Tool ${response.id} does not require follow-up, skipping message creation")
+
+                    // Set completed state if tool requests to terminate flow
+//                    if (response.followUpMetadata.shouldTerminateFlow) {
+//                        state.completed = true
+//                        Log.d(TAG, "Tool execution completed the flow")
+//                    }
+                }
             }
 
             // 返回工具響應列表
@@ -113,15 +141,15 @@ class ToolNode<S : GraphState>(
                 continue
             toolCall.executed = true
 
-            // 優先從本地工具映射中尋找工具
-            val tool = getTool(toolCall.name) ?: model.getTool(toolCall.name)
+            // 從本地工具映射中尋找工具
+            val tool = getTool(toolCall.name)
 
             if (tool == null) {
                 // 處理找不到工具的情況
                 val errorResponse = ToolResponse(
                     id = toolCall.id,
                     output = "Tool ${toolCall.name} not found",
-                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
+                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = false)
                 )
                 toolResponses.add(errorResponse)
                 continue
@@ -144,6 +172,9 @@ class ToolNode<S : GraphState>(
                 @Suppress("UNCHECKED_CAST")
                 val metadata = tool.getFollowUpMetadata(result)
 
+                // Log the follow-up metadata
+                Log.d(TAG, "Tool ${toolCall.name} follow-up metadata: requiresFollowUp=${metadata.requiresFollowUp}")
+
                 // 創建包含後續處理元數據的工具回應
                 val response = ToolResponse(
                     id = toolCall.id,
@@ -157,7 +188,7 @@ class ToolNode<S : GraphState>(
                 val errorResponse = ToolResponse(
                     id = toolCall.id,
                     output = "Error executing tool: ${e.message}",
-                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = true)
+                    followUpMetadata = ToolFollowUpMetadata(requiresFollowUp = false)
                 )
                 toolResponses.add(errorResponse)
             }

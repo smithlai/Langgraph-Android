@@ -79,7 +79,7 @@ Based on this weather information, please continue answering the user's question
 
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
-            shouldTerminateFlow = false,
+//            shouldTerminateFlow = false,
             customFollowUpPrompt = customPrompt
         )
     }

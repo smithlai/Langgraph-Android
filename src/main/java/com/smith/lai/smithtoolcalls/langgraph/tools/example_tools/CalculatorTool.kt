@@ -25,7 +25,7 @@ class CalculatorTool : BaseTool<CalculatorInput, Int>() {
     override fun getFollowUpMetadata(response: Int): ToolFollowUpMetadata {
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
-            shouldTerminateFlow = false,
+//            shouldTerminateFlow = false,
             customFollowUpPrompt = followup_prompt(response.toString())
         )
     }

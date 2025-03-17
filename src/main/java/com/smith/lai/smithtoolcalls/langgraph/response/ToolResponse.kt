@@ -18,7 +18,7 @@ data class ToolFollowUpMetadata(
     // 是否需要後續處理
     val requiresFollowUp: Boolean = true,
     // 是否應該終止流程
-    val shouldTerminateFlow: Boolean = false,
+//    val shouldTerminateFlow: Boolean = false,
     // 自定義的後續提示詞
     val customFollowUpPrompt: String = ""
 )

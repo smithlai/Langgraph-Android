@@ -28,7 +28,7 @@ Based on this information, continue answering the request.
 
         return ToolFollowUpMetadata(
             requiresFollowUp = true,
-            shouldTerminateFlow = false,
+//            shouldTerminateFlow = false,
             customFollowUpPrompt = customPrompt // 現在使用非空字串
         )
     }

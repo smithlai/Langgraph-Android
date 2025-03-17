@@ -41,21 +41,29 @@ data class Message(
          * 從工具響應創建工具消息
          */
         fun fromToolResponse(toolResponse: ToolResponse<*>): Message {
+            // Skip creating a message if the tool doesn't require follow-up
+            if (!toolResponse.followUpMetadata.requiresFollowUp) {
+                throw IllegalStateException("Cannot create message from tool that doesn't require follow-up")
+            }
+
+            // Create appropriate content based on tool response
+            val content = when {
+                toolResponse.followUpMetadata.customFollowUpPrompt.isNotEmpty() -> {
+                    toolResponse.followUpMetadata.customFollowUpPrompt
+                }
+                // For Unit responses or empty responses, provide a minimal message
+                toolResponse.output == Unit || toolResponse.output == null || toolResponse.output.toString().isEmpty() -> {
+                    "The tool action was executed successfully."
+                }
+                else -> {
+                    "The tool returned: \"${toolResponse.output}\". Based on this information, continue answering the request."
+                }
+            }
+
             return Message(
                 role = MessageRole.TOOL,
-                content = if (toolResponse.followUpMetadata.customFollowUpPrompt.isNotEmpty()) {
-                    toolResponse.followUpMetadata.customFollowUpPrompt
-                } else {
-                    "The tool returned: \"${toolResponse.output}\". Based on this information, continue answering the request."
-                },
-//                toolOutput = toolResponse.output,
-                toolResponse = toolResponse  // Store the complete ToolResponse
-//                metadata = mapOf(
-//                    "toolId" to toolResponse.id,
-//                    "toolType" to toolResponse.type.toString(),
-//                    "requiresFollowUp" to toolResponse.followUpMetadata.requiresFollowUp.toString(),
-//                    "shouldTerminateFlow" to toolResponse.followUpMetadata.shouldTerminateFlow.toString()
-//                )
+                content = content,
+                toolResponse = toolResponse
             )
         }
     }
