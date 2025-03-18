@@ -62,7 +62,7 @@ abstract class LLMWithTools(
     fun addToolPrompt() {
         if (!isToolPromptAdded) {
             val systemPrompt = adapter?.createToolPrompt(getTools()) ?: ""
-            Log.d(TAG, "Adding ToolPrompt(${systemPrompt.length})")
+            Log.d(TAG, "Adding ToolPrompt(${systemPrompt.length}):${systemPrompt}")
             addSystemMessage(systemPrompt)
             isToolPromptAdded = true
         }
