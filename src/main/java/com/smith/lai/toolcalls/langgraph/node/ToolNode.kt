@@ -78,11 +78,6 @@ class ToolNode<S : GraphState>(
     }
 
     /**
-     * 獲取已綁定的工具
-     */
-    fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
-
-    /**
      * 根據名稱獲取工具
      */
     fun getTool(name: String): BaseTool<*, *>? = tools[name]
@@ -94,11 +89,12 @@ class ToolNode<S : GraphState>(
         Log.d(TAG, "Executing tools")
 
         // 獲取最後一條包含工具調用的消息
-        val messageWithToolCall = state.getLastToolCallsMessage() ?: return listOf()
-
+        val messageWithToolCall = state.getLastToolCallsMessage()
+            ?: throw IllegalStateException("No message with tool calls found in the state")
 
         // 從消息中獲取結構化的LLM回應
-        val structuredLLMResponse = messageWithToolCall.structuredLLMResponse ?: return listOf()
+        val structuredLLMResponse = messageWithToolCall.structuredLLMResponse
+            ?: throw IllegalStateException("No structured LLM response found in the message with tool calls")
 
         // 處理工具調用
         val toolResponses = executeTools(structuredLLMResponse.toolCalls)

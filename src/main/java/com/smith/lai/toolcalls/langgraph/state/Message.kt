@@ -25,8 +25,7 @@ data class Message(
     val structuredLLMResponse: StructuredLLMResponse? = null, // if any tool_calls (this usually comes from llm response)
     val timestamp: Long = System.currentTimeMillis(),
     val toolResponse: ToolResponse<*>? = null,  // if any tool_node, this comes from tool node (or processLLMResponse())
-    var queueing: Boolean = false, // if need to send to model
-    val metadata: Map<String, Any>? = null
+    var queueing: Boolean = false, // if need to send content to model
 ) {
     constructor(role: MessageRole, content: String) : this(
         UUID.randomUUID().toString(), role, content

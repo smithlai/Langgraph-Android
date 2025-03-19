@@ -39,20 +39,14 @@ abstract class LLMWithTools(
         return this
     }
 
-    fun bind_tools(toolClass: KClass<out BaseTool<*, *>>):LLMWithTools {
-        val instance = toolClass.createInstance()
-        bind_tools(instance)
-        return this
-    }
-
     fun bind_tools(tools: List<BaseTool<*, *>>):LLMWithTools {
         tools.forEach { bind_tools(it) }
         return this
     }
 
-    fun getTool(name: String): BaseTool<*, *>? = tools[name]
-
-    fun getToolNames(): List<String> = tools.keys.toList()
+//    fun getTool(name: String): BaseTool<*, *>? = tools[name]
+//
+//    fun getToolNames(): List<String> = tools.keys.toList()
 
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
