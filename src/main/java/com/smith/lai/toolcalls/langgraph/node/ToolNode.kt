@@ -61,15 +61,6 @@ class ToolNode<S : GraphState>(
     }
 
     /**
-     * 綁定工具類
-     */
-    fun bind_tools(toolClass: KClass<out BaseTool<*, *>>): ToolNode<S> {
-        val instance = toolClass.createInstance()
-        bind_tools(instance)
-        return this
-    }
-
-    /**
      * 綁定多個工具
      */
     fun bind_tools(toolList: List<BaseTool<*, *>>): ToolNode<S> {

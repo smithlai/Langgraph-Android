@@ -138,7 +138,7 @@ class LangGraph<S: GraphState>(
                 break
             }
             queuing_callbacks.forEach{
-                //todo : OnMessageCallback
+                onMessageCallback?.invoke(it)
             }
             Log.d(logTag, "===== 步驟 ${state.stepCount}: 執行節點 '$currentNodeName' =====")
 
