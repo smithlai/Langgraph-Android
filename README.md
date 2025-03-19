@@ -1,16 +1,21 @@
-# Smith Tool Call Module
+# Langgraph Android Module
 
 ## Overview
 
-SmithToolCall is an Android library that provides tool_calls and langgraph-like function in Android.
+langgraph-android is an Android module that provides tool_calls and langgraph-like function in Android.
 
+Example code: [LangGraphDemoOnSmolChat](https://github.com/smithlai/LangGraphDemoOnSmolChat.git)
 
 ## Installation
 
+clone this as your submodule
+```sh
+git submodule add https://github.com/smithlai/Langgraph-Android.git langgraph-android
+```
 ##### root/setting.gradle.kts
 ```kotlin
 .....
-include(":SmithToolCalls")
+include(":langgraph-android")
 ......
 ```
 ##### root/build.gradle.kts
@@ -24,7 +29,7 @@ plugins {
 
 dependencies {
     ....
-    implementation(project(":SmithToolCalls"))
+    implementation(project(":langgraph-android"))
     // for @Serialization and @Annotation
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.1.10")
     implementation("org.jetbrains.kotlin.plugin.serialization:org.jetbrains.kotlin.plugin.serialization.gradle.plugin:2.1.10")
@@ -33,25 +38,6 @@ dependencies {
 }
 ```
 
-#####  root/Application.kt (Deprecated)
-```kotlin
-// class XXXApplication : Application() {
-//     override fun onCreate() {
-//         super.onCreate()
-//         startKoin {
-//             androidContext(this@XXXApplication)
-//             modules(
-//                 listOf(
-//                     KoinAppModule().module,
-//                     SmithToolCallsModule().module // auto include Koin module (@Single, @Factory, or @Inject)
-//                 )
-//             )
-//         }
-//         ...
-//         ...
-//     }
-// }
-```
 ## Basic Usage
 
 ### Tool Creation
