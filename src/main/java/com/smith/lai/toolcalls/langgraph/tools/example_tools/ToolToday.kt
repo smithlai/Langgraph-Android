@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-@ToolAnnotation(name = "tool_today", description = "取得今天日期")
+@ToolAnnotation(name = "tool_today", description = "retrieve today's date")
 class ToolToday : BaseTool<Unit, String>() {
     override suspend fun invoke(input: Unit): String {
         delay(1000)
