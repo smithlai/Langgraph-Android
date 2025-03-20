@@ -28,7 +28,7 @@ abstract class Node<S : GraphState> {
      * 包含錯誤處理，將節點輸出轉發給外部
      */
     suspend fun process(state: S): List<Message> {
-        try {
+//        try {
             // 執行核心處理邏輯
             Log.d(TAG, "${this.javaClass.simpleName}: 開始處理")
 
@@ -37,14 +37,14 @@ abstract class Node<S : GraphState> {
 
             Log.d(TAG, "${this.javaClass.simpleName}: 處理完成")
             return result
-        } catch (e: Exception) {
-            // 處理異常
-            Log.e(TAG, "${this.javaClass.simpleName}: 處理出錯: ${e.message}", e)
-            return listOf(Message(
-                role = MessageRole.ERROR,
-                content = "${e.message}"
-            ))
-        }
+//        } catch (e: Exception) {
+//            // 處理異常
+//            Log.e(TAG, "${this.javaClass.simpleName}: 處理出錯: ${e.message}", e)
+//            return listOf(Message(
+//                role = MessageRole.ERROR,
+//                content = "${e.message}"
+//            ))
+//        }
     }
 
     /**

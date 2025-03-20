@@ -142,7 +142,6 @@ abstract class LLMWithTools(
                     MessageRole.USER -> addUserMessage(message.content)
                     MessageRole.ASSISTANT -> addAssistantMessage(message.content)
                     MessageRole.TOOL -> addToolMessage(message.content)
-                    MessageRole.ERROR -> {/*do nothing*/}
                 }
                 Log.v(TAG,"Add message: ${message.role.name}:${message.content}")
             }

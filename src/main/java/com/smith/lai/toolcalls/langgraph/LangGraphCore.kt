@@ -167,11 +167,11 @@ class LangGraph<S: GraphState>(
                             state.addMessage(message)
                         }
                         // Node 發生Error
-                        MessageRole.ERROR -> {
-                            Log.d(logTag, "發生錯誤: Error Response - ${message.content}")
-//                        state.addMessage(message)
-                            throw IllegalStateException("${message.content}")
-                        }
+//                        MessageRole.ERROR -> {
+//                            Log.d(logTag, "發生錯誤: Error Response - ${message.content}")
+////                        state.addMessage(message)
+//                            throw IllegalStateException("${message.content}")
+//                        }
                         else ->{}
                     }
                     onNodeCompleteCallback?.invoke(nodeOutput)
