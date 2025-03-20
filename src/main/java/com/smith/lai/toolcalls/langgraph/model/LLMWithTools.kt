@@ -27,8 +27,6 @@ abstract class LLMWithTools(
 
     // 追踪工具提示是否已添加
     private var isToolPromptAdded = false
-    // 追踪初始訊息是否已添加
-//    private var messagesInitialized = false
 
     fun bind_tools(tool: BaseTool<*, *>):LLMWithTools {
         val annotation = tool::class.findAnnotation<ToolAnnotation>() ?:
@@ -43,10 +41,6 @@ abstract class LLMWithTools(
         tools.forEach { bind_tools(it) }
         return this
     }
-
-//    fun getTool(name: String): BaseTool<*, *>? = tools[name]
-//
-//    fun getToolNames(): List<String> = tools.keys.toList()
 
     fun getTools(): List<BaseTool<*, *>> = tools.values.toList()
 
@@ -93,9 +87,13 @@ abstract class LLMWithTools(
      * 接收消息列表，處理它們並返回助手的回應消息
      *
      * @param messages 要處理的消息列表
+     * @param onStreaming 流式回應的回調函數，提供當前累積的響應文本
      * @return 助手的回應消息
      */
-    suspend fun invoke(messages: List<Message>): Message {
+    suspend fun invoke(
+        messages: List<Message>,
+        onStreaming: (suspend (String) -> Unit)? = null
+    ): Message {
         // 準備模型 - 確保工具提示已添加
         if (!isToolPromptAdded) {
             addToolPrompt()
@@ -108,6 +106,8 @@ abstract class LLMWithTools(
         val responseText = StringBuilder()
         getResponse().collect { chunk ->
             responseText.append(chunk)
+            // 調用流式回調函數（如果提供）
+            onStreaming?.invoke(responseText.toString())
         }
         Log.i(TAG, "LLM Responses: $responseText")
 

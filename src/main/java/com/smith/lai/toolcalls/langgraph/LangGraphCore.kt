@@ -19,7 +19,7 @@ class LangGraph<S: GraphState>(
     private var endNodeName: String = NodeNames.END,
     private var maxSteps: Int = 50,
     // Trigger on internal Messages(Tool and Assistant), excluding final output
-    private var onMessageCallback: (suspend (Message) -> Unit)? = null
+    private var onNodeCompleteCallback: (suspend (List<Message>) -> Unit)? = null
 ) {
     private val logTag = "LangGraph"
     private var compiled = false
@@ -32,9 +32,10 @@ class LangGraph<S: GraphState>(
         return addNode(NodeNames.END, com.smith.lai.toolcalls.langgraph.node.EndNode<S>())
     }
 
-    /**
-     * 添加節點
-     */
+    fun getNode(name: String): Node<S>? {
+        return nodes.getOrDefault(name, null)
+    }
+
     fun addNode(name: String, node: Node<S>): LangGraph<S> {
         nodes[name] = node
         return this
@@ -66,8 +67,11 @@ class LangGraph<S: GraphState>(
         return this
     }
 
-    fun setOnMessageCallback(callback: suspend (Message) -> Unit): LangGraph<S> {
-        onMessageCallback = callback
+    /**
+     * 設置消息回調
+     */
+    fun setOnNodeCompleteCallback(callback: suspend (List<Message>) -> Unit): LangGraph<S> {
+        onNodeCompleteCallback = callback
         return this
     }
 
@@ -120,7 +124,6 @@ class LangGraph<S: GraphState>(
         val startTime = System.currentTimeMillis()
 
         Log.d(logTag, "開始執行圖，入口: '$startNodeName'")
-        val queuing_callbacks:MutableList<Message> = mutableListOf()
         while (true) {
             // 增加步驟計數
             state.incrementStep()
@@ -137,9 +140,7 @@ class LangGraph<S: GraphState>(
                 Log.e(logTag, "找不到節點 '$currentNodeName'，終止執行")
                 break
             }
-            queuing_callbacks.forEach{
-                onMessageCallback?.invoke(it)
-            }
+
             Log.d(logTag, "===== 步驟 ${state.stepCount}: 執行節點 '$currentNodeName' =====")
 
             try {
@@ -173,7 +174,7 @@ class LangGraph<S: GraphState>(
                         }
                         else ->{}
                     }
-                    queuing_callbacks.add(message)
+                    onNodeCompleteCallback?.invoke(nodeOutput)
                 }
                 if (currentNodeName == endNodeName) {
                     Log.d(logTag, "終止節點執行完成，標記流程完成")
@@ -210,16 +211,7 @@ class LangGraph<S: GraphState>(
 
         val totalDuration = System.currentTimeMillis() - startTime
         Log.d(logTag, "圖執行完成，共 ${state.stepCount} 步，總耗時 ${totalDuration}ms")
-        // trigger callbacks
-        queuing_callbacks.dropLast(1).forEach {
-            // 使用 onMessage 回調
-            onMessageCallback?.invoke(it)
-        }
 
-//        // 處理最後一個回調，使用 onComplete
-//        queuing_callbacks.lastOrNull()?.let {
-//            onCompletedCallback?.invoke(state)
-//        }
         return state
     }
 

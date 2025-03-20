@@ -7,18 +7,33 @@ import com.smith.lai.toolcalls.langgraph.state.Message
 
 /**
  * LLM 節點 - 處理對LLM的調用
- * 只生成響應，完全不接觸狀態
+ * 支持流式生成以更新UI
  */
-class LLMNode<S : GraphState>(protected val model: LLMWithTools) : Node<S>() {
+class LLMNode<S : GraphState>(
+    protected val model: LLMWithTools,
+    private var onProgressCallback: (suspend (String) -> Unit)? = null
+) : Node<S>() {
     private val TAG = "LLMNode"
 
     /**
-     * 核心處理邏輯 - 只專注於使用LLM生成回應
+     * 設置進度回調
+     * 允許在節點創建後更新回調
+     */
+    fun setProgressCallback(callback: (suspend (String) -> Unit)?) {
+        onProgressCallback = callback
+        Log.d(TAG, "Progress callback has been ${if (callback == null) "cleared" else "set"}")
+    }
+
+    /**
+     * 核心處理邏輯 - 直接使用LLMWithTools的流式回應功能
      */
     override suspend fun invoke(state: S): List<Message> {
-        Log.d(TAG, "Generating LLM response")
+        Log.d(TAG, "Generating LLM response with streaming ${if(onProgressCallback != null) "and callback" else "without callback"}")
 
-        // 使用LLM處理消息並生成回應
-        return listOf(model.invoke(state.messages))
+        // 使用LLM處理消息並生成回應，傳遞流式回調
+        val response = model.invoke(state.messages, onProgressCallback)
+
+        // 直接返回LLM生成的消息
+        return listOf(response)
     }
 }
